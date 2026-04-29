@@ -75,7 +75,7 @@ class ActionButtons extends StatelessWidget {
         height: 60,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.8),
-          shape: BoxCircle.circle,
+          shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2),
         ),
         child: Center(

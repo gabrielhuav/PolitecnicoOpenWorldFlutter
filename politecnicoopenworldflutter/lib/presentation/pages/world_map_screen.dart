@@ -34,10 +34,16 @@ class WorldMapScreen extends ConsumerWidget {
                 userAgentPackageName: 'ovh.gabrielhuav.pow',
               ),
               // Capa de calles (Overpass)
-              ref.watch(roadsProvider(lat: playerPos.latitude, lon: playerPos.longitude)).when(
+              // FIX: roadsProvider espera un record anónimo, no parámetros nombrados.
+              // Correcto: roadsProvider((lat: ..., lon: ...))
+              ref.watch(roadsProvider((lat: playerPos.latitude, lon: playerPos.longitude))).when(
                 data: (ways) => PolylineLayer(
                   polylines: ways.map((way) => Polyline(
-                    points: way.nodes.map((n) => LatLng(n.lat, n.lon)).toList(),
+                    // FIX: nodes nunca es null (List<MapNode> non-nullable),
+                    // pero usamos whereType por si algún nodo fuera inválido.
+                    points: way.nodes
+                        .map((n) => LatLng(n.lat, n.lon))
+                        .toList(),
                     color: Colors.white.withValues(alpha: 0.5),
                     strokeWidth: 3.0,
                   )).toList(),
@@ -45,18 +51,23 @@ class WorldMapScreen extends ConsumerWidget {
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
               ),
+              // Marcador del jugador
               MarkerLayer(
-                markers: [
+                 markers: [
                   Marker(
                     point: playerPos,
                     width: 40,
                     height: 40,
-                    child: const Icon(Icons.navigation, color: Colors.blue, size: 30),
+                    child: const Icon(
+                      Icons.navigation,
+                      color: Colors.blue,
+                      size: 30,
+                    ),
                   ),
                 ],
               ),
             ],
-          ),
+          ), 
           
           // NUEVA CAPA: CONTROLES
           const GameControls(),

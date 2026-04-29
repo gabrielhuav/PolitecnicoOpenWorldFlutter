@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/map_way.dart';
 import '../datasources/local/app_database.dart';
 import '../datasources/remote/overpass_client.dart';
@@ -21,6 +22,15 @@ class MapRepositoryImpl {
   void _saveToCache(List<MapWay> ways) {
     // Implementaremos el guardado en Drift pronto
     // Usamos _db para evitar el error de field unused
-    print("Preparando caché en base de datos: ${_db.executor}");
+    debugPrint('Preparando caché en base de datos: ${_db.executor}');
+    // Aquí iría la lógica para convertir MapWay a la entidad de Drift y guardarla
+    
+    // Por ahora solo imprimimos para confirmar que _db se está usando
+    debugPrint('Caché guardada (simulado) para ${ways.length} vías');  
+    // Usamos _db para evitar el error de field unused
+    debugPrint('Base de datos disponible: ${_db.executor}');
+
+    // En el futuro, podríamos implementar una lógica de caché más sofisticada
+    // que verifique si ya tenemos datos recientes antes de llamar a Overpass
   }
 }
