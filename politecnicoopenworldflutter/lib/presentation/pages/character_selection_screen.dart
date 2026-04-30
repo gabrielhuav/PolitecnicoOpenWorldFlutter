@@ -56,6 +56,7 @@ class _CharacterSelectionScreenState
 
     return Scaffold(
       body: Container(
+        // === LADO VISUAL: Fondo con Gradiente (Código 1) ===
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -68,25 +69,76 @@ class _CharacterSelectionScreenState
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(context),
-              const SizedBox(height: 8),
-              Expanded(
-                child: _buildCarousel(characters, selectedIndex),
-              ),
-              const SizedBox(height: 16),
-              _buildPageIndicator(characters.length, selectedIndex),
-              const SizedBox(height: 24),
-            ],
+          // === FUNCIONALIDAD: Layout Responsivo (Código 2) ===
+          child: OrientationBuilder(
+            builder: (context, orientation) {
+              return orientation == Orientation.portrait
+                  ? _buildVerticalLayout(context, characters, selectedIndex)
+                  : _buildHorizontalLayout(context, characters, selectedIndex);
+            },
           ),
         ),
       ),
     );
   }
 
+  // --- VERTICAL ---
+  Widget _buildVerticalLayout(
+      BuildContext context, List characters, int selectedIndex) {
+    return Column(
+      children: [
+        _buildTopBar(context),
+        const SizedBox(height: 8),
+        Expanded(
+          child: _buildCarousel(characters, selectedIndex),
+        ),
+        const SizedBox(height: 16),
+        _buildPageIndicator(characters.length, selectedIndex),
+        // Botón en la parte inferior, ancho completo
+        Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: _buildStartButton(context, double.infinity),
+        ),
+      ],
+    );
+  }
+
+  // --- HORIZONTAL ---
+  Widget _buildHorizontalLayout(
+      BuildContext context, List characters, int selectedIndex) {
+    return Row(
+      children: [
+        // Lado izquierdo: Personajes y TopBar
+        Expanded(
+          flex: 2,
+          child: Column(
+            children: [
+              _buildTopBar(context),
+              Expanded(
+                child: _buildCarousel(characters, selectedIndex),
+              ),
+              const SizedBox(height: 16),
+              _buildPageIndicator(characters.length, selectedIndex),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+        // Lado derecho: Botón de iniciar centrado
+        Expanded(
+          flex: 1,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: _buildStartButton(context, null),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ============================================
-  // TOP BAR (back + título + Iniciar Partida)
+  // TOP BAR (Modificado para remover el botón de inicio de aquí)
   // ============================================
   Widget _buildTopBar(BuildContext context) {
     return Padding(
@@ -107,29 +159,34 @@ class _CharacterSelectionScreenState
               letterSpacing: 1.0,
             ),
           ),
-          const Spacer(),
-          // ---------- BOTÓN INICIAR PARTIDA (esquina superior derecha) ----------
-          ElevatedButton.icon(
-            onPressed: () => _startGame(context),
-            icon: const Icon(Icons.play_arrow_rounded, size: 22),
-            label: const Text(
-              'Iniciar Partida',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.tealAccent.shade700,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              elevation: 6,
-            ),
-          ),
         ],
+      ),
+    );
+  }
+
+  // ============================================
+  // BOTÓN "INICIAR PARTIDA" (Estilo Código 1)
+  // ============================================
+  Widget _buildStartButton(BuildContext context, double? minWidth) {
+    return ElevatedButton.icon(
+      onPressed: () => _startGame(context),
+      icon: const Icon(Icons.play_arrow_rounded, size: 26),
+      label: const Text(
+        'Iniciar Partida',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.tealAccent.shade700,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        minimumSize: minWidth != null ? Size(minWidth, 50) : null,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 6,
       ),
     );
   }
@@ -185,7 +242,7 @@ class _CharacterSelectionScreenState
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.black.withValues(alpha: enabled ? 0.45 : 0.15),
+      color: Colors.black.withOpacity(enabled ? 0.45 : 0.15),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -218,7 +275,7 @@ class _CharacterSelectionScreenState
           decoration: BoxDecoration(
             color: active
                 ? Colors.tealAccent.shade400
-                : Colors.white.withValues(alpha: 0.4),
+                : Colors.white.withOpacity(0.4),
             borderRadius: BorderRadius.circular(4),
           ),
         );

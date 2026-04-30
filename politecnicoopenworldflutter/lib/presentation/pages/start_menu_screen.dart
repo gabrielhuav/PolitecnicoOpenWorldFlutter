@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Importamos la pantalla de selección de personaje y el widget del botón
 import 'character_selection_screen.dart';
 import '../widgets/menu_button.dart';
 
@@ -25,11 +26,9 @@ class StartMenuScreen extends StatelessWidget {
         child: SafeArea(
           child: OrientationBuilder(
             builder: (context, orientation) {
-              if (orientation == Orientation.portrait) {
-                return const _PortraitLayout();
-              } else {
-                return const _LandscapeLayout();
-              }
+              return orientation == Orientation.portrait
+                  ? const _PortraitLayout()
+                  : const _LandscapeLayout();
             },
           ),
         ),
@@ -38,6 +37,7 @@ class StartMenuScreen extends StatelessWidget {
   }
 }
 
+// --- VERTICAL ---
 class _PortraitLayout extends StatelessWidget {
   const _PortraitLayout({Key? key}) : super(key: key);
 
@@ -46,7 +46,7 @@ class _PortraitLayout extends StatelessWidget {
     return const Center(
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 20.0),
+          padding: EdgeInsets.symmetric(horizontal: 40.0, vertical: 20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -61,6 +61,7 @@ class _PortraitLayout extends StatelessWidget {
   }
 }
 
+// --- HORIZONTAL ---
 class _LandscapeLayout extends StatelessWidget {
   const _LandscapeLayout({Key? key}) : super(key: key);
 
@@ -68,7 +69,7 @@ class _LandscapeLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 10.0),
+        padding: EdgeInsets.symmetric(horizontal: 40.0, vertical: 10.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -86,6 +87,7 @@ class _LandscapeLayout extends StatelessWidget {
   }
 }
 
+// --- LOGO Y TÍTULO ---
 class _LogoAndTitle extends StatelessWidget {
   const _LogoAndTitle({Key? key}) : super(key: key);
 
@@ -118,7 +120,7 @@ class _LogoAndTitle extends StatelessWidget {
   }
 }
 
-// Mantenemos ConsumerStatefulWidget por si queremos volver a usar ref más adelante.
+// --- BOTONES Y NAVEGACIÓN ---
 class _ActionButtons extends ConsumerStatefulWidget {
   const _ActionButtons({Key? key}) : super(key: key);
 
@@ -133,7 +135,7 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
     if (_isNavigating) return;
     setState(() => _isNavigating = true);
 
-    // Pequeño "tick" visual para que el spinner alcance a verse en transición.
+    // Pequeño "tick" visual para que el spinner alcance a verse en la transición.
     await Future.delayed(const Duration(milliseconds: 250));
 
     if (!mounted) return;
