@@ -31,9 +31,5 @@ class Npc extends Equatable {
   }) : id = id ?? const Uuid().v4();
 
   @override
-  List<Object?> get props => [
-        id, type, location, rotationAngle, speed, 
-        currentWay, targetNodeIndex, moveDirection, 
-        carColor, carModel
-      ];
+  List<Object?> get props => [id];
 }
