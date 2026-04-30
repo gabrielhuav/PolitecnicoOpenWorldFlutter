@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/character_provider.dart';
+// Asumiendo que tienes un provider para el mapa, impórtalo aquí
+// import '../state/map_provider.dart';
 import '../widgets/character_card.dart';
 import 'world_map_screen.dart';
 
@@ -16,6 +18,9 @@ class CharacterSelectionScreen extends ConsumerStatefulWidget {
 class _CharacterSelectionScreenState
     extends ConsumerState<CharacterSelectionScreen> {
   late final PageController _pageController;
+
+  // === NUEVO: Estado de carga ===
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -42,11 +47,38 @@ class _CharacterSelectionScreenState
     );
   }
 
-  void _startGame(BuildContext context) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const WorldMapScreen()),
-    );
+  // === NUEVO: Lógica asíncrona de precarga ===
+  Future<void> _startGame(BuildContext context) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Aquí invocas la precarga del mapa usando Riverpod.
+      // Ejemplo: await ref.read(mapProvider.notifier).preloadWorldData();
+
+      // Simulamos un tiempo de carga mientras implementas el provider real
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Revisamos si el widget sigue montado antes de navegar
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const WorldMapScreen()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al cargar el mapa: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   @override
@@ -138,7 +170,7 @@ class _CharacterSelectionScreenState
   }
 
   // ============================================
-  // TOP BAR (Modificado para remover el botón de inicio de aquí)
+  // TOP BAR
   // ============================================
   Widget _buildTopBar(BuildContext context) {
     return Padding(
@@ -165,9 +197,22 @@ class _CharacterSelectionScreenState
   }
 
   // ============================================
-  // BOTÓN "INICIAR PARTIDA" (Estilo Código 1)
+  // BOTÓN "INICIAR PARTIDA" (Modificado con _isLoading)
   // ============================================
   Widget _buildStartButton(BuildContext context, double? minWidth) {
+    // Si está cargando, mostramos el indicador en lugar del botón
+    if (_isLoading) {
+      return SizedBox(
+        height: 50, // Altura estándar del botón para evitar saltos en la UI
+        width: minWidth,
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: Colors.tealAccent,
+          ),
+        ),
+      );
+    }
+
     return ElevatedButton.icon(
       onPressed: () => _startGame(context),
       icon: const Icon(Icons.play_arrow_rounded, size: 26),
@@ -218,7 +263,8 @@ class _CharacterSelectionScreenState
           left: 4,
           child: _arrowButton(
             icon: Icons.chevron_left,
-            enabled: selectedIndex > 0,
+            enabled: selectedIndex > 0 &&
+                !_isLoading, // Deshabilita si está cargando
             onTap: () => _goTo(selectedIndex - 1, characters.length),
           ),
         ),
@@ -228,7 +274,8 @@ class _CharacterSelectionScreenState
           right: 4,
           child: _arrowButton(
             icon: Icons.chevron_right,
-            enabled: selectedIndex < characters.length - 1,
+            enabled: selectedIndex < characters.length - 1 &&
+                !_isLoading, // Deshabilita si está cargando
             onTap: () => _goTo(selectedIndex + 1, characters.length),
           ),
         ),
