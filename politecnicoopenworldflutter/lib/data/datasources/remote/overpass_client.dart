@@ -18,8 +18,31 @@ class OverpassClient {
     ''';
 
     try {
-      final response = await _dio.post(_baseUrl, data: 'data=$query');
-      return _parseOverpassResponse(response.data);
+      final response = await _dio.post(
+        _baseUrl,
+        data: {'data': query},
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.json,
+          sendTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 30),
+          headers: const {
+            'User-Agent': 'politecnicoopenworldflutter/1.0',
+          },
+        ),
+      );
+
+      final responseData = response.data;
+      if (responseData is Map<String, dynamic>) {
+        return _parseOverpassResponse(responseData);
+      }
+      if (responseData is Map) {
+        return _parseOverpassResponse(Map<String, dynamic>.from(responseData));
+      }
+
+      throw Exception(
+        'Respuesta de Overpass no válida: ${responseData.runtimeType}',
+      );
     } catch (e) {
       throw Exception('Error descargando calles: $e');
     }
