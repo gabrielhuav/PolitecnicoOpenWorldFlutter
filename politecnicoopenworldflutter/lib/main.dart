@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/utils/providers.dart';
-import 'presentation/pages/world_map_screen.dart';
+import 'presentation/pages/start_menu_screen.dart';
+//import 'presentation/pages/world_map_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Inicializamos SharedPreferences antes de arrancar la App
   final prefs = await SharedPreferences.getInstance();
 
@@ -30,7 +31,7 @@ class PolitecnicoOpenWorldApp extends StatelessWidget {
       title: 'Politecnico Open World',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
-      home: const WorldMapScreen(),
+      home: const StartMenuScreen(),
     );
   }
 }
