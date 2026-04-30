@@ -7,6 +7,8 @@ import '../state/character_provider.dart';
 import '../widgets/character_card.dart';
 import 'world_map_screen.dart';
 
+import '../../core/utils/providers.dart';
+
 class CharacterSelectionScreen extends ConsumerStatefulWidget {
   const CharacterSelectionScreen({Key? key}) : super(key: key);
 
@@ -49,18 +51,12 @@ class _CharacterSelectionScreenState
 
   // === NUEVO: Lógica asíncrona de precarga ===
   Future<void> _startGame(BuildContext context) async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // Aquí invocas la precarga del mapa usando Riverpod.
-      // Ejemplo: await ref.read(mapProvider.notifier).preloadWorldData();
+      // === PRECARGA REAL DEL MAPA ===
+      await ref.read(mapStateProvider).loadInitialMapData();
 
-      // Simulamos un tiempo de carga mientras implementas el provider real
-      await Future.delayed(const Duration(seconds: 2));
-
-      // Revisamos si el widget sigue montado antes de navegar
       if (!mounted) return;
 
       Navigator.pushReplacement(
@@ -69,9 +65,7 @@ class _CharacterSelectionScreenState
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al cargar el mapa: $e'),
@@ -200,25 +194,31 @@ class _CharacterSelectionScreenState
   // BOTÓN "INICIAR PARTIDA" (Modificado con _isLoading)
   // ============================================
   Widget _buildStartButton(BuildContext context, double? minWidth) {
-    // Si está cargando, mostramos el indicador en lugar del botón
+    final selectedCharacter = ref.watch(selectedCharacterProvider);
+    final isCustomSlot = selectedCharacter.isCustomSlot;
+
     if (_isLoading) {
       return SizedBox(
-        height: 50, // Altura estándar del botón para evitar saltos en la UI
+        height: 50,
         width: minWidth,
         child: const Center(
-          child: CircularProgressIndicator(
-            color: Colors.tealAccent,
-          ),
+          child: CircularProgressIndicator(color: Colors.tealAccent),
         ),
       );
     }
 
+    // Si la card seleccionada es "Personalizar", el botón se deshabilita
+    final bool enabled = !isCustomSlot;
+
     return ElevatedButton.icon(
-      onPressed: () => _startGame(context),
-      icon: const Icon(Icons.play_arrow_rounded, size: 26),
-      label: const Text(
-        'Iniciar Partida',
-        style: TextStyle(
+      onPressed: enabled ? () => _startGame(context) : null,
+      icon: Icon(
+        enabled ? Icons.play_arrow_rounded : Icons.lock_outline,
+        size: 26,
+      ),
+      label: Text(
+        enabled ? 'Iniciar Partida' : 'Personaje no disponible',
+        style: const TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
@@ -228,10 +228,10 @@ class _CharacterSelectionScreenState
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         minimumSize: minWidth != null ? Size(minWidth, 50) : null,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 6,
+        disabledBackgroundColor: Colors.grey.shade800,
+        disabledForegroundColor: Colors.white38,
       ),
     );
   }
