@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'world_map_screen.dart'; // Asegúrate de que esta ruta sea correcta
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Importamos el archivo global de providers
+import '../../core/utils/providers.dart';
+import 'world_map_screen.dart';
 import '../widgets/menu_button.dart';
 
 class StartMenuScreen extends StatelessWidget {
@@ -20,9 +24,7 @@ class StartMenuScreen extends StatelessWidget {
             ],
           ),
         ),
-        // SafeArea evita que la interfaz se meta en el "notch" o la barra de estado
         child: SafeArea(
-          // OrientationBuilder detecta los giros de pantalla
           child: OrientationBuilder(
             builder: (context, orientation) {
               if (orientation == Orientation.portrait) {
@@ -78,14 +80,12 @@ class _LandscapeLayout extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: const [
-            // Lado Izquierdo: Título e Icono
             Expanded(
               child: SingleChildScrollView(
                 child: _LogoAndTitle(),
               ),
             ),
-            SizedBox(width: 40), // Espacio en el centro
-            // Lado Derecho: Botones
+            SizedBox(width: 40),
             Expanded(
               child: SingleChildScrollView(
                 child: _ActionButtons(),
@@ -99,17 +99,16 @@ class _LandscapeLayout extends StatelessWidget {
 }
 
 // ==========================================
-// COMPONENTES REUTILIZABLES (Como clases puras)
+// COMPONENTES REUTILIZABLES
 // ==========================================
-
 class _LogoAndTitle extends StatelessWidget {
   const _LogoAndTitle({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       mainAxisSize: MainAxisSize.min,
-      children: const [
+      children: [
         Icon(
           Icons.map_outlined,
           size: 90,
@@ -138,8 +137,49 @@ class _LogoAndTitle extends StatelessWidget {
   }
 }
 
-class _ActionButtons extends StatelessWidget {
+// Usamos ConsumerStatefulWidget para tener estado local (el spinner) y leer a Riverpod
+class _ActionButtons extends ConsumerStatefulWidget {
   const _ActionButtons({Key? key}) : super(key: key);
+
+  @override
+  ConsumerState<_ActionButtons> createState() => _ActionButtonsState();
+}
+
+class _ActionButtonsState extends ConsumerState<_ActionButtons> {
+  bool _isLoadingMap = false;
+
+  Future<void> _startPreloading() async {
+    setState(() {
+      _isLoadingMap = true;
+    });
+
+    try {
+      // AQUÍ LA MAGIA DE RIVERPOD: Usamos ref.read() para llamar a la función sin escuchar reconstrucciones
+      final mapProv = ref.read(mapStateProvider.notifier);
+
+      await mapProv.loadInitialMapData();
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const WorldMapScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar el mapa: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMap = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,37 +189,36 @@ class _ActionButtons extends StatelessWidget {
         MenuButton(
           title: 'Empezar Aventura',
           icon: Icons.play_arrow_rounded,
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                // NOTA: Si aquí te marca error rojo, quítale el "const" a WorldMapScreen()
-                builder: (context) => const WorldMapScreen(),
-              ),
-            );
-          },
+          isLoading: _isLoadingMap,
+          onPressed: _startPreloading,
         ),
         const SizedBox(height: 15),
         MenuButton(
           title: 'Cargar Partida',
           icon: Icons.folder_open_rounded,
           isSecondary: true,
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Buscando partidas guardadas...')),
-            );
-          },
+          onPressed: _isLoadingMap
+              ? null
+              : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Buscando partidas guardadas...')),
+                  );
+                },
         ),
         const SizedBox(height: 15),
         MenuButton(
           title: 'Configuración',
           icon: Icons.settings,
           isSecondary: true,
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Configuración próximamente...')),
-            );
-          },
+          onPressed: _isLoadingMap
+              ? null
+              : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Configuración próximamente...')),
+                  );
+                },
         ),
       ],
     );

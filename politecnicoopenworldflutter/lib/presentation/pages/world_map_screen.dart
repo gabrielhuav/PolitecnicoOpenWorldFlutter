@@ -1,85 +1,123 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
+
+// Importamos el archivo global de providers
 import '../../core/utils/providers.dart';
-import '../state/map_provider.dart';
+import 'start_menu_screen.dart';
 import '../widgets/game_controls.dart';
-import '../state/player_movement_notifier.dart';
 
+// Usamos ConsumerWidget para escuchar el estado general del mapa
 class WorldMapScreen extends ConsumerWidget {
-  const WorldMapScreen({super.key});
+  const WorldMapScreen({Key? key}) : super(key: key);
 
+  // Riverpod inyecta la variable "ref" automáticamente en el método build
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Usamos el nuevo provider de movimiento
-    final playerPos = ref.watch(playerMovementProvider); 
-    final permissionAsync = ref.watch(locationPermissionProvider);
+    // Escuchamos los cambios del mapa en tiempo real
+    final mapProvider = ref.watch(mapStateProvider);
 
+    // 1. Estado de Carga
+    if (mapProvider.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // 2. Estado de Error
+    if (mapProvider.errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 60, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                mapProvider.errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const StartMenuScreen()),
+                  );
+                },
+                child: const Text('Volver al Menú'),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 3. Estado de Éxito: El Mapa y la Interfaz
     return Scaffold(
-      // Mantenemos el AppBar o lo quitamos para modo inmersivo
       body: Stack(
         children: [
-          FlutterMap(
-            options: MapOptions(
-              initialCenter: playerPos,
-              initialZoom: 17.0,
-              // Evitamos que el usuario mueva el mapa con los dedos 
-              // para forzar el uso de los controles del juego
-              interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.drag),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'ovh.gabrielhuav.pow',
-              ),
-              // Capa de calles (Overpass)
-              // FIX: roadsProvider espera un record anónimo, no parámetros nombrados.
-              // Correcto: roadsProvider((lat: ..., lon: ...))
-              ref.watch(roadsProvider((lat: playerPos.latitude, lon: playerPos.longitude))).when(
-                data: (ways) => PolylineLayer(
-                  polylines: ways.map((way) => Polyline(
-                    // FIX: nodes nunca es null (List<MapNode> non-nullable),
-                    // pero usamos whereType por si algún nodo fuera inválido.
-                    points: way.nodes
-                        .map((n) => LatLng(n.lat, n.lon))
-                        .toList(),
-                    color: Colors.white.withValues(alpha: 0.5),
-                    strokeWidth: 3.0,
-                  )).toList(),
-                ),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-              // Marcador del jugador
-              MarkerLayer(
-                 markers: [
-                  Marker(
-                    point: playerPos,
-                    width: 40,
-                    height: 40,
-                    child: const Icon(
-                      Icons.navigation,
-                      color: Colors.blue,
-                      size: 30,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ), 
-          
-          // NUEVA CAPA: CONTROLES
-          const GameControls(),
-          const ActionButtons(),
+          // CAPA 0: EL MAPA
+          _buildMapCanvas(mapProvider),
 
-          // Overlay de carga
-          permissionAsync.when(
-            data: (ok) => const SizedBox.shrink(),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text("Error: $err")),
+          // CAPA 1: BOTÓN DE REGRESO
+          Positioned(
+            top: 50,
+            left: 20,
+            child: FloatingActionButton(
+              mini: true,
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black87,
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const StartMenuScreen()),
+                );
+              },
+              child: const Icon(Icons.menu),
+            ),
+          ),
+
+          // CAPA 2: CONTROLES DEL JUGADOR
+          const Positioned(
+            bottom: 30,
+            left: 0,
+            right: 0,
+            child: GameControls(),
           ),
         ],
+      ),
+    );
+  }
+
+  // Área interactiva donde eventualmente se dibujarán los nodos del mundo
+  Widget _buildMapCanvas(dynamic provider) {
+    return InteractiveViewer(
+      boundaryMargin: const EdgeInsets.all(double.infinity),
+      minScale: 0.1,
+      maxScale: 4.0,
+      child: Container(
+        color: const Color(0xFFE8E5DF), // Color tipo "terreno"
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.map, size: 80, color: Colors.black26),
+              const SizedBox(height: 10),
+              Text(
+                'Mundo Generado\nNodos cargados: ${provider.nodes.length}\nVías cargadas: ${provider.ways.length}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  color: Colors.black54,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

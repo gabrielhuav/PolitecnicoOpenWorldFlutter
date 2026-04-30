@@ -18,25 +18,29 @@ class GameControls extends ConsumerWidget {
           children: [
             // D-PAD Simple
             IconButton(
-              icon: const Icon(Icons.arrow_upward, size: 40, color: Colors.white),
+              icon:
+                  const Icon(Icons.arrow_upward, size: 40, color: Colors.white),
               onPressed: () => movement.move(1, 0),
             ),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, size: 40, color: Colors.white),
+                  icon: const Icon(Icons.arrow_back,
+                      size: 40, color: Colors.white),
                   onPressed: () => movement.move(0, -1),
                 ),
                 const SizedBox(width: 40),
                 IconButton(
-                  icon: const Icon(Icons.arrow_forward, size: 40, color: Colors.white),
+                  icon: const Icon(Icons.arrow_forward,
+                      size: 40, color: Colors.white),
                   onPressed: () => movement.move(0, 1),
                 ),
               ],
             ),
             IconButton(
-              icon: const Icon(Icons.arrow_downward, size: 40, color: Colors.white),
+              icon: const Icon(Icons.arrow_downward,
+                  size: 40, color: Colors.white),
               onPressed: () => movement.move(-1, 0),
             ),
           ],
@@ -81,7 +85,8 @@ class ActionButtons extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
           ),
         ),
       ),
