@@ -18,13 +18,14 @@ RUN apt-get update && apt-get install -y \
 
 # Configurar variables de entorno para Flutter
 ENV FLUTTER_HOME=/opt/flutter
+ENV FLUTTER_VERSION=3.24.0
 ENV PATH=${FLUTTER_HOME}/bin:${PATH}
 
-# Descargar e instalar Flutter (versión estable)
-RUN git clone https://github.com/flutter/flutter.git -b stable ${FLUTTER_HOME}
+# Descargar e instalar Flutter en una versión fija para builds reproducibles
+RUN git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/flutter.git ${FLUTTER_HOME}
 
-# Ejecutar flutter doctor para descargar dependencias adicionales del SDK
-RUN flutter doctor
+# Verificar la instalación de Flutter sin depender de checks variables del entorno
+RUN flutter --version
 
 # Crear el directorio de trabajo
 WORKDIR /app
