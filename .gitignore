@@ -27,6 +27,7 @@ local.properties
 .pub-preload-cache/
 .pub/
 build/
+pubspec.lock
 flutter_*.png
 linked_*.ds
 unlinked.ds
