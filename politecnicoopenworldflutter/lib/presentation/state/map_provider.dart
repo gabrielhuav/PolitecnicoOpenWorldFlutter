@@ -37,24 +37,25 @@ class MapProvider extends ChangeNotifier {
   Future<void> loadInitialMapData() async {
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
+    notifyListeners(); // Avisamos a la UI que empezamos a cargar
 
     try {
-      // Centro inicial: ESCOM (mismo punto que playerLocationProvider)
-      const double initialLat = 19.5045;
-      const double initialLon = -99.1465;
+      // Aquí delegas el trabajo pesado al repositorio.
+      // Idealmente, tu repositorio debería devolver un objeto o tupla con nodos y vías.
+      // Ejemplo: final result = await _mapRepository.getOpenWorldData();
 
-      final ways =
-          await _mapRepository.getRoadsForLocation(initialLat, initialLon);
+      // Simulación mientras terminas de cablear el MapRepositoryImpl:
+      await Future.delayed(const Duration(seconds: 2));
 
-      _ways = ways;
-      _nodes = ways.expand((w) => w.nodes).toList();
+      // _nodes = result.nodes;
+      // _ways = result.ways;
     } catch (e) {
       _errorMessage = 'Fallo crítico al inicializar el mundo: $e';
-      rethrow;
+      // Lanzamos la excepción para que el menú principal la cachee y muestre el SnackBar
+      throw Exception(_errorMessage);
     } finally {
       _isLoading = false;
-      notifyListeners();
+      notifyListeners(); // Avisamos a la UI que ya terminamos (éxito o fracaso)
     }
   }
 

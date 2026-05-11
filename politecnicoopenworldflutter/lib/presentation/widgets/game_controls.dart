@@ -12,65 +12,38 @@ class GameControls extends ConsumerWidget {
     return Align(
       alignment: Alignment.bottomLeft,
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15), width: 1),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _DPadButton(
-                icon: Icons.arrow_upward,
-                onPressed: () => movement.move(1, 0),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _DPadButton(
-                    icon: Icons.arrow_back,
-                    onPressed: () => movement.move(0, -1),
-                  ),
-                  const SizedBox(width: 40),
-                  _DPadButton(
-                    icon: Icons.arrow_forward,
-                    onPressed: () => movement.move(0, 1),
-                  ),
-                ],
-              ),
-              _DPadButton(
-                icon: Icons.arrow_downward,
-                onPressed: () => movement.move(-1, 0),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DPadButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  const _DPadButton({required this.icon, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.12),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(icon, size: 32, color: Colors.white),
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // D-PAD Simple
+            IconButton(
+              icon:
+                  const Icon(Icons.arrow_upward, size: 40, color: Colors.white),
+              onPressed: () => movement.move(1, 0),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back,
+                      size: 40, color: Colors.white),
+                  onPressed: () => movement.move(0, -1),
+                ),
+                const SizedBox(width: 40),
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward,
+                      size: 40, color: Colors.white),
+                  onPressed: () => movement.move(0, 1),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_downward,
+                  size: 40, color: Colors.white),
+              onPressed: () => movement.move(-1, 0),
+            ),
+          ],
         ),
       ),
     );
@@ -113,10 +86,7 @@ class ActionButtons extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-            ),
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
           ),
         ),
       ),
