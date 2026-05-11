@@ -1,14 +1,11 @@
 # ==========================================
-# Entorno de desarrollo e IDE (Heredado de Kotlin)
+# Entorno de desarrollo e IDE
 # ==========================================
 *.iml
 .gradle/
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+.idea/
+!.idea/codeStyles/
+!.idea/runConfigurations/
 .DS_Store
 /captures
 .externalNativeBuild
@@ -97,6 +94,11 @@ desktop.ini
 *.so
 *.o
 *.a
+
+# ==========================================
+# Gradle cache local
+# ==========================================
+gradle/wrapper/gradle-wrapper.jar
 
 # ==========================================
 # iOS / XCode (Específico para Apple)
