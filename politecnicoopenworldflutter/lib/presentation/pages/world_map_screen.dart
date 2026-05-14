@@ -166,13 +166,19 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
           ),
 
           // ============================================
-          // CAPA 4: CONTROLES (D-PAD)
+          // CAPA 4: CONTROLES (D-PAD) Y BOTONES DE ACCIÓN
           // ============================================
           const Positioned(
             bottom: 30,
             left: 0,
             right: 0,
-            child: GameControls(),
+            // Usamos un Stack para encimar ambos controles en esta capa
+            child: Stack(
+              children: [
+                GameControls(),   // Se alinea solo a la izquierda
+                ActionButtons(),  // Se alinea solo a la derecha
+              ],
+            ),
           ),
         ],
       ),
