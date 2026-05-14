@@ -182,7 +182,9 @@ class _CharacterSelectionScreenState
     return ElevatedButton.icon(
       onPressed: enabled ? () => _startGame(context) : null,
       icon: Icon(
-        isCustomSlot ? Icons.lock_outline : Icons.play_arrow_rounded,
+        isCustomSlot
+            ? Icons.lock_outline
+            : (_gameStarting ? Icons.hourglass_top : Icons.play_arrow_rounded),
         size: 22,
       ),
       label: Text(

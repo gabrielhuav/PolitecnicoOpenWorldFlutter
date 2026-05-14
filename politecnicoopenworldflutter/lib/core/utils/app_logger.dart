@@ -12,9 +12,10 @@ class _FileLogOutput extends LogOutput {
   @override
   void output(OutputEvent event) {
     final lines = event.lines.join('\n');
-    _pendingWrite = _pendingWrite.then((_) {
-      return logFile.writeAsString('$lines\n', mode: FileMode.append);
-    }).catchError((error, stackTrace) {
+    _pendingWrite = _pendingWrite
+        .catchError((_, __) {})
+        .then((_) => logFile.writeAsString('$lines\n', mode: FileMode.append))
+        .catchError((error, stackTrace) {
       debugPrint('AppLogger file write failed: $error\n$stackTrace');
     });
   }
@@ -62,12 +63,12 @@ class AppLogger {
     final fileSize = await _logFile!.length();
     if (fileSize <= _maxLogBytes) return;
 
-    final content = await _logFile!.readAsString();
-    if (content.length <= _retainTailBytes) {
+    final bytes = await _logFile!.readAsBytes();
+    if (bytes.length <= _retainTailBytes) {
       return;
     }
 
-    final trimmed = content.substring(content.length - _retainTailBytes);
-    await _logFile!.writeAsString(trimmed);
+    final start = bytes.length - _retainTailBytes;
+    await _logFile!.writeAsBytes(bytes.sublist(start), flush: false);
   }
 }

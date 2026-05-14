@@ -51,7 +51,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
     );
 
     _tipTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted || _tips.length < 2) return;
+      if (!mounted || _hasError || _tips.length < 2) return;
       setState(() => _tipIndex = (_tipIndex + 1) % _tips.length);
     });
 

@@ -6,6 +6,22 @@ class AppSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return const _AppSettingsView();
+  }
+}
+
+class _AppSettingsView extends StatefulWidget {
+  const _AppSettingsView();
+
+  @override
+  State<_AppSettingsView> createState() => _AppSettingsViewState();
+}
+
+class _AppSettingsViewState extends State<_AppSettingsView> {
+  late final Future<PackageInfo> _packageInfoFuture = PackageInfo.fromPlatform();
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -52,7 +68,7 @@ class AppSettingsScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   children: [
                     FutureBuilder<PackageInfo>(
-                      future: PackageInfo.fromPlatform(),
+                      future: _packageInfoFuture,
                       builder: (context, snapshot) {
                         final package = snapshot.data;
                         final version = package == null
