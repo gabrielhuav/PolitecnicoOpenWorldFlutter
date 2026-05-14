@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:politecnicoopenworldflutter/core/utils/app_logger.dart';
 
 import '../state/character_provider.dart';
 // Asumiendo que tienes un provider para el mapa, impórtalo aquí
@@ -51,6 +52,8 @@ class _CharacterSelectionScreenState
 
   // === NUEVO: Lógica asíncrona de precarga ===
   Future<void> _startGame(BuildContext context) async {
+    final character = ref.read(selectedCharacterProvider);
+    AppLogger.log.i('Iniciando partida con personaje: ${character.id}');
     setState(() => _isLoading = true);
 
     try {

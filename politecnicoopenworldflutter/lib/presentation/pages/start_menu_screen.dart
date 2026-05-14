@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Importamos la pantalla de selección de personaje y el widget del botón
 import 'character_selection_screen.dart';
+import 'debug_log_screen.dart';
 import '../widgets/menu_button.dart';
 
 class StartMenuScreen extends StatelessWidget {
@@ -135,7 +136,6 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
     if (_isNavigating) return;
     setState(() => _isNavigating = true);
 
-    // Pequeño "tick" visual para que el spinner alcance a verse en la transición.
     await Future.delayed(const Duration(milliseconds: 250));
 
     if (!mounted) return;
@@ -146,10 +146,15 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
         builder: (_) => const CharacterSelectionScreen(),
       ),
     ).then((_) {
-      if (mounted) {
-        setState(() => _isNavigating = false);
-      }
+      if (mounted) setState(() => _isNavigating = false);
     });
+  }
+
+  void _goToDebugLog() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const DebugLogScreen()),
+    );
   }
 
   @override
@@ -191,6 +196,17 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
                   );
                 },
         ),
+
+        // ── BOTÓN DE DEBUG (solo visible en modo debug) ──────────────────
+        if (kDebugMode) ...[
+          const SizedBox(height: 15),
+          MenuButton(
+            title: 'Debug Logs',
+            icon: Icons.bug_report_outlined,
+            isSecondary: true,
+            onPressed: _isNavigating ? null : _goToDebugLog,
+          ),
+        ],
       ],
     );
   }
