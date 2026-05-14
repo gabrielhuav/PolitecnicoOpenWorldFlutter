@@ -62,7 +62,6 @@ class AppLogger {
 
     final content = await _logFile!.readAsString();
     if (content.length <= _retainTailBytes) {
-      await _logFile!.writeAsString(content);
       return;
     }
 
