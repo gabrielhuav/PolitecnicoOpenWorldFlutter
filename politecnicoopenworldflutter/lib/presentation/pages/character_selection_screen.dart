@@ -55,10 +55,16 @@ class _CharacterSelectionScreenState
       'Iniciando partida con personaje: ${ref.read(selectedCharacterProvider).id}',
     );
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoadingScreen()),
-    );
+    try {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoadingScreen()),
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _gameStarting = false);
+      }
+    }
   }
 
   // ── Build principal ──────────────────────────────────────────────────

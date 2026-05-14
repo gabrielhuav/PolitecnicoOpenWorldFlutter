@@ -64,10 +64,6 @@ class AppLogger {
     if (fileSize <= _maxLogBytes) return;
 
     final bytes = await _logFile!.readAsBytes();
-    if (bytes.length <= _retainTailBytes) {
-      return;
-    }
-
     final start = bytes.length - _retainTailBytes;
     await _logFile!.writeAsBytes(bytes.sublist(start), flush: false);
   }
