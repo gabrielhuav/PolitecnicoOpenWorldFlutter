@@ -12,7 +12,6 @@ class _FileLogOutput extends LogOutput {
   void output(OutputEvent event) {
     final lines = event.lines.join('\n');
     logFile.writeAsStringSync('$lines\n', mode: FileMode.append, flush: true);
-    if (kDebugMode) debugPrint(lines);
   }
 }
 

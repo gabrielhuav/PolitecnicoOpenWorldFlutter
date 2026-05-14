@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/providers.dart';
 import 'world_map_screen.dart';
+import '../../core/utils/app_logger.dart';
 
 class LoadingScreen extends ConsumerStatefulWidget {
   const LoadingScreen({Key? key}) : super(key: key);
@@ -25,6 +26,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
 
+  bool _loadStarted = false;
   String _statusText = 'Inicializando el mundo…';
   bool _hasError = false;
   String _errorMessage = '';
@@ -54,6 +56,14 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
   }
 
   Future<void> _loadMap() async {
+    AppLogger.log.d(
+      'Iniciando carga del mapa...',
+      stackTrace: StackTrace.current,
+    );
+
+    if (_loadStarted) return;
+    _loadStarted = true;
+
     try {
       setState(() => _statusText = 'Descargando calles del campus…');
       await ref.read(mapStateProvider).loadInitialMapData();
@@ -65,15 +75,24 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
       await Future.delayed(const Duration(milliseconds: 600));
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const WorldMapScreen()),
-      );
+      try {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const WorldMapScreen()),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Error al abrir el mapa: $e';
+          _statusText = 'Error al cargar el mapa';
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage = e.toString();
+        _errorMessage = 'Error al cargar el mapa: $e';
         _statusText = 'Error al cargar el mapa';
       });
     }

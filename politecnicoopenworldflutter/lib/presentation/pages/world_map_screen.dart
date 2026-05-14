@@ -66,7 +66,8 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate:
+                    'https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
                 maxNativeZoom: 19,
               ),
@@ -92,6 +93,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             top: 50,
             left: 20,
             child: FloatingActionButton(
+              heroTag: 'fab_menu',
               mini: true,
               backgroundColor: Colors.white,
               foregroundColor: Colors.black87,
@@ -155,6 +157,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             bottom: 220,
             right: 20,
             child: FloatingActionButton(
+              heroTag: 'fab_recentral',
               mini: true,
               backgroundColor: Colors.white,
               foregroundColor: Colors.black87,
