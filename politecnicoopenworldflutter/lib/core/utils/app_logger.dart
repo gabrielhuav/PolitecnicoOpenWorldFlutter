@@ -15,7 +15,7 @@ class _FileLogOutput extends LogOutput {
     _pendingWrite = _pendingWrite.then((_) {
       return logFile.writeAsString('$lines\n', mode: FileMode.append);
     }).catchError((error, stackTrace) {
-      debugPrint('AppLogger file write failed: $error');
+      debugPrint('AppLogger file write failed: $error\n$stackTrace');
     });
   }
 }
