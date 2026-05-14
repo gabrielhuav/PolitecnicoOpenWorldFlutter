@@ -119,17 +119,22 @@ class _CharacterSelectionScreenState
       BuildContext context, List characters, int selectedIndex) {
     return Column(
       children: [
-        _buildTopBar(context),
+        _buildTopBar(context, arrowOffset: 4.0),
         const SizedBox(height: 8),
         Expanded(
-          child: _buildCarousel(characters, selectedIndex),
+          child: _buildCarousel(characters, selectedIndex, arrowOffset: 4.0),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         _buildPageIndicator(characters.length, selectedIndex),
-        // Botón en la parte inferior, ancho completo
         Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: _buildStartButton(context, double.infinity),
+          padding: const EdgeInsets.all(10.0),
+          child: Row(
+            children: [
+              Expanded(child: _buildEditButton(context)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStartButton(context, double.infinity)),
+            ],
+          ),
         ),
       ],
     );
@@ -140,9 +145,9 @@ class _CharacterSelectionScreenState
       BuildContext context, List characters, int selectedIndex) {
     return Column(
       children: [
-        _buildTopBar(context),
+        _buildTopBar(context, arrowOffset: 60.0),
         Expanded(
-          child: _buildCarousel(characters, selectedIndex),
+          child: _buildCarousel(characters, selectedIndex, arrowOffset: 60.0),
         ),
         const SizedBox(height: 8),
         _buildPageIndicator(characters.length, selectedIndex),
@@ -164,9 +169,9 @@ class _CharacterSelectionScreenState
   // ============================================
   // TOP BAR
   // ============================================
-  Widget _buildTopBar(BuildContext context) {
+  Widget _buildTopBar(BuildContext context, {double arrowOffset = 4.0}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(50, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(arrowOffset + 8, 8, 16, 8),
       child: Row(
         children: [
           IconButton(
@@ -212,12 +217,12 @@ class _CharacterSelectionScreenState
       onPressed: enabled ? () => _startGame(context) : null,
       icon: Icon(
         enabled ? Icons.play_arrow_rounded : Icons.lock_outline,
-        size: 26,
+        size: 22,
       ),
       label: Text(
         enabled ? 'Iniciar Partida' : 'Personaje no disponible',
         style: const TextStyle(
-          fontSize: 18,
+          fontSize: 15,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -227,7 +232,7 @@ class _CharacterSelectionScreenState
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         minimumSize: minWidth != null ? Size(minWidth, 50) : null,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 6,
+        elevation: 2,
         disabledBackgroundColor: Colors.grey.shade800,
         disabledForegroundColor: Colors.white38,
       ),
@@ -252,7 +257,7 @@ class _CharacterSelectionScreenState
       ),
       label: Text(
         isCustomSlot ? 'Crear personaje' : 'Editar personaje',
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF1F2A3A),
@@ -274,7 +279,8 @@ class _CharacterSelectionScreenState
   // ============================================
   // CARRUSEL PRINCIPAL
   // ============================================
-  Widget _buildCarousel(List characters, int selectedIndex) {
+  Widget _buildCarousel(List characters, int selectedIndex,
+      {double arrowOffset = 4.0}) {
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -292,25 +298,19 @@ class _CharacterSelectionScreenState
             );
           },
         ),
-
-        // Flecha izquierda
         Positioned(
-          left: 60,
+          left: arrowOffset,
           child: _arrowButton(
             icon: Icons.chevron_left,
-            enabled: selectedIndex > 0 &&
-                !_isLoading, // Deshabilita si está cargando
+            enabled: selectedIndex > 0 && !_isLoading,
             onTap: () => _goTo(selectedIndex - 1, characters.length),
           ),
         ),
-
-        // Flecha derecha
         Positioned(
-          right: 60,
+          right: arrowOffset,
           child: _arrowButton(
             icon: Icons.chevron_right,
-            enabled: selectedIndex < characters.length - 1 &&
-                !_isLoading, // Deshabilita si está cargando
+            enabled: selectedIndex < characters.length - 1 && !_isLoading,
             onTap: () => _goTo(selectedIndex + 1, characters.length),
           ),
         ),
