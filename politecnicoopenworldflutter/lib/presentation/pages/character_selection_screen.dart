@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'loading_screen.dart';
 import 'package:politecnicoopenworldflutter/core/utils/app_logger.dart';
 
 import '../state/character_provider.dart';
 // Asumiendo que tienes un provider para el mapa, impórtalo aquí
 // import '../state/map_provider.dart';
 import '../widgets/character_card.dart';
-import 'world_map_screen.dart';
-
-import '../../core/utils/providers.dart';
 
 class CharacterSelectionScreen extends ConsumerStatefulWidget {
   const CharacterSelectionScreen({Key? key}) : super(key: key);
@@ -50,32 +48,15 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // === NUEVO: Lógica asíncrona de precarga ===
+  // === Página de precarga ===
   Future<void> _startGame(BuildContext context) async {
     final character = ref.read(selectedCharacterProvider);
     AppLogger.log.i('Iniciando partida con personaje: ${character.id}');
-    setState(() => _isLoading = true);
 
-    try {
-      // === PRECARGA REAL DEL MAPA ===
-      await ref.read(mapStateProvider).loadInitialMapData();
-
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const WorldMapScreen()),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al cargar el mapa: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoadingScreen()),
+    );
   }
 
   @override
