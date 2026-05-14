@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/player_movement_notifier.dart';
+import '../state/settings_provider.dart';
 
 // Constante compartida para el tamaño de los controles
 const double controllerBaseSize = 160.0;
@@ -18,9 +19,11 @@ class GameControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final movement = ref.read(playerMovementProvider.notifier);
+    final isSwapped = ref.watch(settingsProvider).swapControls;
 
     return Align(
-      alignment: Alignment.bottomLeft,
+      // Invertimos la alineación dinámicamente
+      alignment: isSwapped ? Alignment.bottomRight : Alignment.bottomLeft,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: _DPadController(
@@ -50,13 +53,15 @@ class GameControls extends ConsumerWidget {
 // ==========================================
 // WIDGET PRINCIPAL: BOTONES DE ACCIÓN
 // ==========================================
-class ActionButtons extends StatelessWidget {
+class ActionButtons extends ConsumerWidget {
   const ActionButtons({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Escuchamos si los controles están invertidos
+    final isSwapped = ref.watch(settingsProvider).swapControls;
     return Align(
-      alignment: Alignment.bottomRight,
+      alignment: isSwapped ? Alignment.bottomLeft : Alignment.bottomRight,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: _ActionButtonsController(

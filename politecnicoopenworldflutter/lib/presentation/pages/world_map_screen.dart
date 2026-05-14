@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-
+import 'settings_screen.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
 import 'start_menu_screen.dart';
@@ -94,7 +94,8 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             child: FloatingActionButton(
               mini: true,
               backgroundColor: Colors.white,
-              foregroundColor: Colors.black87,
+                foregroundColor: Colors.black87,
+                heroTag: 'menu_btn',
               onPressed: () {
                 Navigator.pushReplacement(
                   context,
@@ -108,10 +109,31 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
           ),
 
           // ============================================
-          // CAPA 2: HUD del personaje + coordenadas
+          // CAPA 1.5: BOTÓN DE AJUSTES (top-right)
           // ============================================
           Positioned(
             top: 50,
+            right: 20,
+            child: FloatingActionButton(
+              mini: true,
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black87,
+              heroTag: 'settings_btn',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                );
+              },
+              child: const Icon(Icons.settings),
+            ),
+          ),
+
+          // ============================================
+          // CAPA 2: HUD del personaje + coordenadas
+          // ============================================
+          Positioned(
+            top: 110,
             right: 20,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
