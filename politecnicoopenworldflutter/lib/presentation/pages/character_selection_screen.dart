@@ -97,15 +97,18 @@ class _CharacterSelectionScreenState
             ],
           ),
         ),
-        child: SafeArea(
-          // === FUNCIONALIDAD: Layout Responsivo (Código 2) ===
-          child: OrientationBuilder(
-            builder: (context, orientation) {
-              return orientation == Orientation.portrait
+        child: OrientationBuilder(
+          builder: (context, orientation) {
+            final isPortrait = orientation == Orientation.portrait;
+            return SafeArea(
+              // En landscape desactivamos los lados para usar todo el ancho
+              left: isPortrait,
+              right: isPortrait,
+              child: isPortrait
                   ? _buildVerticalLayout(context, characters, selectedIndex)
-                  : _buildHorizontalLayout(context, characters, selectedIndex);
-            },
-          ),
+                  : _buildHorizontalLayout(context, characters, selectedIndex),
+            );
+          },
         ),
       ),
     );
@@ -135,31 +138,23 @@ class _CharacterSelectionScreenState
   // --- HORIZONTAL ---
   Widget _buildHorizontalLayout(
       BuildContext context, List characters, int selectedIndex) {
-    return Row(
+    return Column(
       children: [
-        // Lado izquierdo: Personajes y TopBar
+        _buildTopBar(context),
         Expanded(
-          flex: 2,
-          child: Column(
-            children: [
-              _buildTopBar(context),
-              Expanded(
-                child: _buildCarousel(characters, selectedIndex),
-              ),
-              const SizedBox(height: 16),
-              _buildPageIndicator(characters.length, selectedIndex),
-              const SizedBox(height: 16),
-            ],
-          ),
+          child: _buildCarousel(characters, selectedIndex),
         ),
-        // Lado derecho: Botón de iniciar centrado
-        Expanded(
-          flex: 1,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: _buildStartButton(context, null),
-            ),
+        const SizedBox(height: 8),
+        _buildPageIndicator(characters.length, selectedIndex),
+        const SizedBox(height: 6), // ← separa puntitos de los botones
+        Padding(
+          padding: const EdgeInsets.fromLTRB(50.0, 0, 50.0, 14.0),
+          child: Row(
+            children: [
+              Expanded(child: _buildEditButton(context)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStartButton(context, double.infinity)),
+            ],
           ),
         ),
       ],
@@ -171,7 +166,7 @@ class _CharacterSelectionScreenState
   // ============================================
   Widget _buildTopBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(50, 8, 16, 8),
       child: Row(
         children: [
           IconButton(
@@ -239,6 +234,43 @@ class _CharacterSelectionScreenState
     );
   }
 
+  Widget _buildEditButton(BuildContext context) {
+    final isCustomSlot = ref.watch(selectedCharacterProvider).isCustomSlot;
+
+    return ElevatedButton.icon(
+      onPressed: _isLoading
+          ? null
+          : () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Editor de personaje próximamente...')),
+              );
+            },
+      icon: Icon(
+        isCustomSlot ? Icons.add_circle_outline : Icons.edit_outlined,
+        size: 22,
+      ),
+      label: Text(
+        isCustomSlot ? 'Crear personaje' : 'Editar personaje',
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1F2A3A),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        minimumSize: const Size(double.infinity, 50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side:
+              BorderSide(color: Colors.tealAccent.withOpacity(0.5), width: 1.5),
+        ),
+        elevation: 2,
+        disabledBackgroundColor: Colors.grey.shade800,
+        disabledForegroundColor: Colors.white38,
+      ),
+    );
+  }
+
   // ============================================
   // CARRUSEL PRINCIPAL
   // ============================================
@@ -263,7 +295,7 @@ class _CharacterSelectionScreenState
 
         // Flecha izquierda
         Positioned(
-          left: 4,
+          left: 60,
           child: _arrowButton(
             icon: Icons.chevron_left,
             enabled: selectedIndex > 0 &&
@@ -274,7 +306,7 @@ class _CharacterSelectionScreenState
 
         // Flecha derecha
         Positioned(
-          right: 4,
+          right: 60,
           child: _arrowButton(
             icon: Icons.chevron_right,
             enabled: selectedIndex < characters.length - 1 &&
