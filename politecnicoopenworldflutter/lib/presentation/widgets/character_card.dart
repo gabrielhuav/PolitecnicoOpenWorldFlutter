@@ -124,25 +124,31 @@ class DottedBorderBox extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.all(20),
         alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isCustomSlot ? Icons.add_circle_outline : Icons.image_outlined,
-              size: 64,
-              color: isCustomSlot ? Colors.tealAccent.shade100 : Colors.white54,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isCustomSlot ? 'Crear nuevo' : 'Imagen pendiente',
-              style: TextStyle(
+        child: FittedBox(
+          // ← envuelve la Column
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isCustomSlot ? Icons.add_circle_outline : Icons.image_outlined,
+                size: 64,
                 color:
                     isCustomSlot ? Colors.tealAccent.shade100 : Colors.white54,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                isCustomSlot ? 'Crear nuevo' : 'Imagen pendiente',
+                style: TextStyle(
+                  color: isCustomSlot
+                      ? Colors.tealAccent.shade100
+                      : Colors.white54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
