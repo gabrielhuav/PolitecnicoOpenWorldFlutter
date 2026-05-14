@@ -5,12 +5,14 @@ enum MapTileProvider {
   cartoLight(
     label: 'Carto Claro',
     url:
-        'https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
+        'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c', 'd'],
   ),
   cartoDark(
     label: 'Carto Oscuro',
     url:
-        'https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+        'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c', 'd'],
   ),
   stadiaLight(
     label: 'Stadia Claro',
@@ -23,15 +25,21 @@ enum MapTileProvider {
   ),
   osm(
     label: 'OpenStreetMap',
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c'],
   );
 
   final String label;
   final String url;
-  const MapTileProvider({required this.label, required this.url});
+  final List<String> subdomains;
+  const MapTileProvider({
+    required this.label,
+    required this.url,
+    this.subdomains = const [],
+  });
 }
 
 // ── Provider global — cambia el valor aquí para probar ──────────────
 final mapTileProviderProvider = StateProvider<MapTileProvider>(
-  (ref) => MapTileProvider.osm, // ← valor inicial
+  (ref) => MapTileProvider.cartoLight,
 );

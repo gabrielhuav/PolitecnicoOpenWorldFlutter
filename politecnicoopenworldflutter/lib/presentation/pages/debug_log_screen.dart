@@ -13,8 +13,10 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
   @override
   void initState() {
     super.initState();
-    AppLogger.readLog()
-        .then((s) => setState(() => _content = s.isEmpty ? '(sin logs)' : s));
+    AppLogger.readLog().then((s) {
+      if (!mounted) return;
+      setState(() => _content = s.isEmpty ? '(sin logs)' : s);
+    });
   }
 
   @override
@@ -27,6 +29,7 @@ class _DebugLogScreenState extends State<DebugLogScreen> {
             icon: const Icon(Icons.delete_forever),
             onPressed: () async {
               await AppLogger.clearLog();
+              if (!mounted) return;
               setState(() => _content = '(log limpiado)');
             },
           ),

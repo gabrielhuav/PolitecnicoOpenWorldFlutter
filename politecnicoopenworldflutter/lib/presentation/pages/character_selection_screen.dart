@@ -49,16 +49,22 @@ class _CharacterSelectionScreenState
   // ── Inicia la partida navegando a LoadingScreen ──────────────────────
   Future<void> _startGame(BuildContext context) async {
     if (_gameStarting) return;
-    _gameStarting = true;
+    setState(() => _gameStarting = true);
 
     AppLogger.log.i(
       'Iniciando partida con personaje: ${ref.read(selectedCharacterProvider).id}',
     );
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoadingScreen()),
-    );
+    try {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LoadingScreen()),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _gameStarting = false);
+      }
+    }
   }
 
   // ── Build principal ──────────────────────────────────────────────────
@@ -177,16 +183,18 @@ class _CharacterSelectionScreenState
   // Deshabilitado cuando el slot de personalización está seleccionado
   Widget _buildStartButton(BuildContext context, double? minWidth) {
     final isCustomSlot = ref.watch(selectedCharacterProvider).isCustomSlot;
-    final bool enabled = !isCustomSlot;
+    final bool enabled = !isCustomSlot && !_gameStarting;
 
     return ElevatedButton.icon(
       onPressed: enabled ? () => _startGame(context) : null,
       icon: Icon(
-        enabled ? Icons.play_arrow_rounded : Icons.lock_outline,
+        isCustomSlot ? Icons.lock_outline : Icons.play_arrow_rounded,
         size: 22,
       ),
       label: Text(
-        enabled ? 'Iniciar Partida' : 'Personaje no disponible',
+        isCustomSlot
+            ? 'Personaje no disponible'
+            : (_gameStarting ? 'Iniciando...' : 'Iniciar Partida'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),

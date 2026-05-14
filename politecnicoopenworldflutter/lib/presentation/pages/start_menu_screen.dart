@@ -221,7 +221,7 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
         if (kDebugMode) ...[
           const SizedBox(height: 15),
           MenuButton(
-            title: 'Debug Logs',
+            title: 'Registros de depuración',
             icon: Icons.bug_report_outlined,
             isSecondary: true,
             onPressed: _isNavigating

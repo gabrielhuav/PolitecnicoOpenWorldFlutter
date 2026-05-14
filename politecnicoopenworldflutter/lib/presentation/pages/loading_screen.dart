@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/providers.dart';
+import 'character_selection_screen.dart';
 import 'world_map_screen.dart';
 import '../../core/utils/app_logger.dart';
 
@@ -13,7 +16,7 @@ class LoadingScreen extends ConsumerStatefulWidget {
 
 class _LoadingScreenState extends ConsumerState<LoadingScreen>
     with SingleTickerProviderStateMixin {
-  // ── Consejos estáticos (por ahora) ──────────────────────────────────
+  // ── Consejos rotativos ───────────────────────────────────────────────
   static const List<String> _tips = [
     'ESCOM fue fundada en 1974 como parte del IPN.',
     'El campus tiene más de 6,000 estudiantes activos.',
@@ -25,11 +28,13 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
 
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
+  Timer? _tipTimer;
 
   bool _loadStarted = false;
   String _statusText = 'Inicializando el mundo…';
   bool _hasError = false;
   String _errorMessage = '';
+  int _tipIndex = 0;
 
   @override
   void initState() {
@@ -45,21 +50,24 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    _tipTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || _tips.length < 2) return;
+      setState(() => _tipIndex = (_tipIndex + 1) % _tips.length);
+    });
+
     // Arranca la carga en el siguiente frame para que la UI ya esté montada
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadMap());
   }
 
   @override
   void dispose() {
+    _tipTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
 
   Future<void> _loadMap() async {
-    AppLogger.log.d(
-      'Iniciando carga del mapa...',
-      stackTrace: StackTrace.current,
-    );
+    AppLogger.log.d('Iniciando carga del mapa...');
 
     if (_loadStarted) return;
     _loadStarted = true;
@@ -75,19 +83,10 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
       await Future.delayed(const Duration(milliseconds: 600));
 
       if (!mounted) return;
-      try {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const WorldMapScreen()),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        setState(() {
-          _hasError = true;
-          _errorMessage = 'Error al abrir el mapa: $e';
-          _statusText = 'Error al cargar el mapa';
-        });
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const WorldMapScreen()),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -187,7 +186,18 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                        return;
+                      }
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CharacterSelectionScreen(),
+                        ),
+                      );
+                    },
                     icon: const Icon(Icons.arrow_back),
                     label: const Text('Regresar'),
                     style: ElevatedButton.styleFrom(
@@ -200,7 +210,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                 const Spacer(flex: 2),
 
                 // ── Consejo ─────────────────────────────────────────
-                _TipCard(tips: _tips),
+                _TipCard(tip: _tips[_tipIndex]),
 
                 const Spacer(flex: 1),
               ],
@@ -214,15 +224,12 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
 
 // ── Widget del consejo ────────────────────────────────────────────────
 class _TipCard extends StatelessWidget {
-  final List<String> tips;
+  final String tip;
 
-  const _TipCard({required this.tips});
+  const _TipCard({required this.tip});
 
   @override
   Widget build(BuildContext context) {
-    // Consejo fijo por ahora; más adelante lo haremos rotativo
-    const int tipIndex = 0;
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -255,7 +262,7 @@ class _TipCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  tips[tipIndex],
+                  tip,
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,

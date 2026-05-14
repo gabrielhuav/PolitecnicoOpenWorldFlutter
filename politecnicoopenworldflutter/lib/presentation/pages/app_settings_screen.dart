@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
-class AppSettingsScreen extends ConsumerWidget {
+class AppSettingsScreen extends StatelessWidget {
   const AppSettingsScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -51,10 +51,19 @@ class AppSettingsScreen extends ConsumerWidget {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    _buildInfoCard(
-                      icon: Icons.info_outline,
-                      title: 'Versión',
-                      value: '1.0.0+1',
+                    FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snapshot) {
+                        final package = snapshot.data;
+                        final version = package == null
+                            ? 'Cargando...'
+                            : '${package.version}+${package.buildNumber}';
+                        return _buildInfoCard(
+                          icon: Icons.info_outline,
+                          title: 'Versión',
+                          value: version,
+                        );
+                      },
                     ),
                     _buildInfoCard(
                       icon: Icons.code,
@@ -101,27 +110,29 @@ class AppSettingsScreen extends ConsumerWidget {
         children: [
           Icon(icon, color: Colors.tealAccent, size: 22),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                  letterSpacing: 0.5,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

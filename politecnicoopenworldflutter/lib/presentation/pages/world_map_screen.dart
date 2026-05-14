@@ -37,7 +37,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   Widget build(BuildContext context) {
     final playerPosition = ref.watch(playerMovementProvider);
     final character = ref.watch(selectedCharacterProvider);
-    final TileProvider = ref.watch(mapTileProviderProvider);
+    final tileProvider = ref.watch(mapTileProviderProvider);
 
     // Cuando el jugador se mueve con los controles, recentramos el mapa.
     ref.listen<LatLng>(playerMovementProvider, (prev, next) {
@@ -69,7 +69,8 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: TileProvider.url, // URL del proveedor seleccionado
+                urlTemplate: tileProvider.url, // URL del proveedor seleccionado
+                subdomains: tileProvider.subdomains,
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
                 maxNativeZoom: 19,
               ),
@@ -159,7 +160,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             bottom: 220,
             right: 20,
             child: FloatingActionButton(
-              heroTag: 'fab_recentral',
+              heroTag: 'fab_recentrar',
               mini: true,
               backgroundColor: Colors.white,
               foregroundColor: Colors.black87,

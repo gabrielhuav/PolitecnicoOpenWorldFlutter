@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/game_settings_providers.dart';
 import '../../core/utils/map_tile_provider.dart';
+import '../../core/utils/providers.dart';
 
 class GameSettingsScreen extends ConsumerStatefulWidget {
   const GameSettingsScreen({Key? key}) : super(key: key);
@@ -38,18 +39,10 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     _freeMovement = ref.read(freeMovementProvider);
   }
 
-  // ── Detecta si el draft difiere de los providers guardados ───────────
-  bool get _hasChanges =>
-      _mapProvider != ref.read(mapTileProviderProvider) ||
-      _controlType != ref.read(controlTypeProvider) ||
-      _invertControls != ref.read(invertControlsProvider) ||
-      _controlSize != ref.read(controlSizeProvider) ||
-      _showFps != ref.read(showFpsProvider) ||
-      _showDatabase != ref.read(showDatabaseProvider) ||
-      _freeMovement != ref.read(freeMovementProvider);
-
   // ── Aplica draft a los providers y notifica ──────────────────────────
-  void _save() {
+  Future<void> _save() async {
+    final settingsRepository = ref.read(settingsRepositoryProvider);
+
     ref.read(mapTileProviderProvider.notifier).state = _mapProvider;
     ref.read(controlTypeProvider.notifier).state = _controlType;
     ref.read(invertControlsProvider.notifier).state = _invertControls;
@@ -58,6 +51,17 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     ref.read(showDatabaseProvider.notifier).state = _showDatabase;
     ref.read(freeMovementProvider.notifier).state = _freeMovement;
 
+    await Future.wait([
+      settingsRepository.setMapProvider(_mapProvider),
+      settingsRepository.setControlType(_controlType),
+      settingsRepository.setInvertControls(_invertControls),
+      settingsRepository.setControlSize(_controlSize),
+      settingsRepository.setShowFps(_showFps),
+      settingsRepository.setShowDatabase(_showDatabase),
+      settingsRepository.setFreeMovement(_freeMovement),
+    ]);
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Configuración guardada'),
@@ -76,6 +80,22 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
   // ── Build ────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final savedMapProvider = ref.watch(mapTileProviderProvider);
+    final savedControlType = ref.watch(controlTypeProvider);
+    final savedInvertControls = ref.watch(invertControlsProvider);
+    final savedControlSize = ref.watch(controlSizeProvider);
+    final savedShowFps = ref.watch(showFpsProvider);
+    final savedShowDatabase = ref.watch(showDatabaseProvider);
+    final savedFreeMovement = ref.watch(freeMovementProvider);
+
+    final hasChanges = _mapProvider != savedMapProvider ||
+        _controlType != savedControlType ||
+        _invertControls != savedInvertControls ||
+        _controlSize != savedControlSize ||
+        _showFps != savedShowFps ||
+        _showDatabase != savedShowDatabase ||
+        _freeMovement != savedFreeMovement;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -151,7 +171,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
                   ],
                 ),
               ),
-              _buildActionBar(),
+               _buildActionBar(hasChanges),
             ],
           ),
         ),
@@ -237,8 +257,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
         endIndent: 16,
       );
 
-  Widget _buildActionBar() {
-    final hasChanges = _hasChanges;
+  Widget _buildActionBar(bool hasChanges) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
