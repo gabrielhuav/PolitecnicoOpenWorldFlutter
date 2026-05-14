@@ -8,6 +8,8 @@ import '../state/player_movement_notifier.dart';
 import 'start_menu_screen.dart';
 import '../widgets/game_controls.dart';
 
+import '../../core/utils/map_tile_provider.dart';
+
 class WorldMapScreen extends ConsumerStatefulWidget {
   const WorldMapScreen({Key? key}) : super(key: key);
 
@@ -35,6 +37,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   Widget build(BuildContext context) {
     final playerPosition = ref.watch(playerMovementProvider);
     final character = ref.watch(selectedCharacterProvider);
+    final TileProvider = ref.watch(mapTileProviderProvider);
 
     // Cuando el jugador se mueve con los controles, recentramos el mapa.
     ref.listen<LatLng>(playerMovementProvider, (prev, next) {
@@ -66,8 +69,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                    'https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
+                urlTemplate: TileProvider.url, // URL del proveedor seleccionado
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
                 maxNativeZoom: 19,
               ),
