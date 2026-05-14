@@ -187,10 +187,6 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
                     onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                        return;
-                      }
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(

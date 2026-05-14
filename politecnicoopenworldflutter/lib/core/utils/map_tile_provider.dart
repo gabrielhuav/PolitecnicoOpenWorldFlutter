@@ -39,7 +39,9 @@ enum MapTileProvider {
   });
 }
 
+const defaultMapTileProvider = MapTileProvider.cartoLight;
+
 // ── Provider global — cambia el valor aquí para probar ──────────────
 final mapTileProviderProvider = StateProvider<MapTileProvider>(
-  (ref) => MapTileProvider.cartoLight,
+  (ref) => defaultMapTileProvider,
 );

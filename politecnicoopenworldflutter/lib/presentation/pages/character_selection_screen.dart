@@ -47,7 +47,7 @@ class _CharacterSelectionScreenState
   }
 
   // ── Inicia la partida navegando a LoadingScreen ──────────────────────
-  Future<void> _startGame(BuildContext context) async {
+  void _startGame(BuildContext context) {
     if (_gameStarting) return;
     setState(() => _gameStarting = true);
 
@@ -55,16 +55,10 @@ class _CharacterSelectionScreenState
       'Iniciando partida con personaje: ${ref.read(selectedCharacterProvider).id}',
     );
 
-    try {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const LoadingScreen()),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _gameStarting = false);
-      }
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoadingScreen()),
+    );
   }
 
   // ── Build principal ──────────────────────────────────────────────────

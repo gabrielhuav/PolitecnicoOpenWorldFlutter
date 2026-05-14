@@ -20,7 +20,7 @@ class SettingsRepository {
     final saved = _prefs.getString('map_provider');
     return MapTileProvider.values.firstWhere(
       (provider) => provider.name == saved,
-      orElse: () => MapTileProvider.cartoLight,
+      orElse: () => defaultMapTileProvider,
     );
   }
 
