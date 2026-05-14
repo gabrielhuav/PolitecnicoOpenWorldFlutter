@@ -94,8 +94,8 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             child: FloatingActionButton(
               mini: true,
               backgroundColor: Colors.white,
-                foregroundColor: Colors.black87,
-                heroTag: 'menu_btn',
+              foregroundColor: Colors.black87,
+              heroTag: 'menu_btn',
               onPressed: () {
                 Navigator.pushReplacement(
                   context,

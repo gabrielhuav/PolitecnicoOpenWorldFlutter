@@ -97,9 +97,9 @@ class _DPadController extends StatelessWidget {
       width: controllerBaseSize,
       height: controllerBaseSize,
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(backgroundAlpha.clamp(0.0, 1.0)),
+        color: Colors.black.withValues(alpha: backgroundAlpha.clamp(0.0, 1.0)),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

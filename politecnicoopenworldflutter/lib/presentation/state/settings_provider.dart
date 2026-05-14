@@ -56,11 +56,22 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(swapControls: swap);
   }
 
+  /// Registra la configuración actual, pero todavía no la persiste.
+  ///
+  /// IMPORTANTE: este método no guarda la configuración de forma duradera;
+  /// solo deja constancia en el log del estado actual. Los callers no deben
+  /// comunicar al usuario que la configuración sobrevivirá al cierre de la app
+  /// hasta que se implemente persistencia real.
   void saveControlsSettings() {
-    // Más adelante se conectará SharedPreferences (o SQLite/Drift)
-    // para que la configuración sobreviva cuando se cierre la app
+    // TODO: Persistir la configuración con SharedPreferences o una base de
+    // datos (por ejemplo, SQLite/Drift) para que sobreviva al cierre de la app.
     final currentState = state;
-    debugPrint("Guardando en BD: Tipo=${currentState.controlType.name}, Escala=${currentState.controlsScale}, Swap=${currentState.swapControls}");
+    debugPrint(
+      "Configuración registrada solo en memoria/log; persistencia pendiente. "
+      "Tipo=${currentState.controlType.name}, "
+      "Escala=${currentState.controlsScale}, "
+      "Swap=${currentState.swapControls}",
+    );
   }
 }
 
