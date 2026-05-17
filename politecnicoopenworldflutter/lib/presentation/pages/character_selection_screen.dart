@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:politecnicoopenworldflutter/core/utils/app_logger.dart';
 import '../state/character_provider.dart';
-// Asumiendo que tienes un provider para el mapa, impórtalo aquí
-// import '../state/map_provider.dart';
 import '../widgets/character_card.dart';
-import 'world_map_screen.dart';
-
-import '../../core/utils/providers.dart';
+import 'loading_screen.dart';
 
 class CharacterSelectionScreen extends ConsumerStatefulWidget {
   const CharacterSelectionScreen({Key? key}) : super(key: key);
@@ -21,16 +18,15 @@ class _CharacterSelectionScreenState
     extends ConsumerState<CharacterSelectionScreen> {
   late final PageController _pageController;
 
-  // === NUEVO: Estado de carga ===
-  bool _isLoading = false;
+  // Evita que el botón dispare múltiples navegaciones simultáneas
+  bool _gameStarting = false;
 
   @override
   void initState() {
     super.initState();
-    final initialIndex = ref.read(selectedCharacterIndexProvider);
     _pageController = PageController(
-      initialPage: initialIndex,
-      viewportFraction: 0.62, // muestra parcialmente las cards vecinas
+      initialPage: ref.read(selectedCharacterIndexProvider),
+      viewportFraction: 0.62,
     );
   }
 
@@ -40,6 +36,7 @@ class _CharacterSelectionScreenState
     super.dispose();
   }
 
+  // ── Navegación al carrusel ───────────────────────────────────────────
   void _goTo(int index, int total) {
     if (index < 0 || index >= total) return;
     _pageController.animateToPage(
@@ -49,32 +46,28 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // === NUEVO: Lógica asíncrona de precarga ===
-  Future<void> _startGame(BuildContext context) async {
-    setState(() => _isLoading = true);
+  // ── Inicia la partida navegando a LoadingScreen ──────────────────────
+  void _startGame(BuildContext context) {
+    if (_gameStarting) return;
+    setState(() => _gameStarting = true);
+
+    AppLogger.log.i(
+      'Iniciando partida con personaje: ${ref.read(selectedCharacterProvider).id}',
+    );
 
     try {
-      // === PRECARGA REAL DEL MAPA ===
-      await ref.read(mapStateProvider).loadInitialMapData();
-
-      if (!mounted) return;
-
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const WorldMapScreen()),
+        MaterialPageRoute(builder: (_) => const LoadingScreen()),
       );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al cargar el mapa: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _gameStarting = false);
+      }
     }
   }
 
+  // ── Build principal ──────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final characters = ref.watch(availableCharactersProvider);
@@ -82,7 +75,6 @@ class _CharacterSelectionScreenState
 
     return Scaffold(
       body: Container(
-        // === LADO VISUAL: Fondo con Gradiente (Código 1) ===
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -94,81 +86,78 @@ class _CharacterSelectionScreenState
             ],
           ),
         ),
-        child: SafeArea(
-          // === FUNCIONALIDAD: Layout Responsivo (Código 2) ===
-          child: OrientationBuilder(
-            builder: (context, orientation) {
-              return orientation == Orientation.portrait
+        child: OrientationBuilder(
+          builder: (context, orientation) {
+            final isPortrait = orientation == Orientation.portrait;
+            return SafeArea(
+              left: isPortrait,
+              right: isPortrait,
+              child: isPortrait
                   ? _buildVerticalLayout(context, characters, selectedIndex)
-                  : _buildHorizontalLayout(context, characters, selectedIndex);
-            },
-          ),
+                  : _buildHorizontalLayout(context, characters, selectedIndex),
+            );
+          },
         ),
       ),
     );
   }
 
-  // --- VERTICAL ---
+  // ── Layout vertical (portrait) ───────────────────────────────────────
   Widget _buildVerticalLayout(
       BuildContext context, List characters, int selectedIndex) {
     return Column(
       children: [
-        _buildTopBar(context),
+        _buildTopBar(context, arrowOffset: 4.0),
         const SizedBox(height: 8),
         Expanded(
-          child: _buildCarousel(characters, selectedIndex),
+          child: _buildCarousel(characters, selectedIndex, arrowOffset: 4.0),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         _buildPageIndicator(characters.length, selectedIndex),
-        // Botón en la parte inferior, ancho completo
         Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: _buildStartButton(context, double.infinity),
-        ),
-      ],
-    );
-  }
-
-  // --- HORIZONTAL ---
-  Widget _buildHorizontalLayout(
-      BuildContext context, List characters, int selectedIndex) {
-    return Row(
-      children: [
-        // Lado izquierdo: Personajes y TopBar
-        Expanded(
-          flex: 2,
-          child: Column(
+          padding: const EdgeInsets.all(10.0),
+          child: Row(
             children: [
-              _buildTopBar(context),
-              Expanded(
-                child: _buildCarousel(characters, selectedIndex),
-              ),
-              const SizedBox(height: 16),
-              _buildPageIndicator(characters.length, selectedIndex),
-              const SizedBox(height: 16),
+              Expanded(child: _buildEditButton(context)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStartButton(context, double.infinity)),
             ],
           ),
         ),
-        // Lado derecho: Botón de iniciar centrado
+      ],
+    );
+  }
+
+  // ── Layout horizontal (landscape) ───────────────────────────────────
+  Widget _buildHorizontalLayout(
+      BuildContext context, List characters, int selectedIndex) {
+    return Column(
+      children: [
+        _buildTopBar(context, arrowOffset: 60.0),
         Expanded(
-          flex: 1,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: _buildStartButton(context, null),
-            ),
+          child: _buildCarousel(characters, selectedIndex, arrowOffset: 60.0),
+        ),
+        const SizedBox(height: 8),
+        _buildPageIndicator(characters.length, selectedIndex),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(50.0, 0, 50.0, 14.0),
+          child: Row(
+            children: [
+              Expanded(child: _buildEditButton(context)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStartButton(context, double.infinity)),
+            ],
           ),
         ),
       ],
     );
   }
 
-  // ============================================
-  // TOP BAR
-  // ============================================
-  Widget _buildTopBar(BuildContext context) {
+  // ── Barra superior con título y botón de regreso ─────────────────────
+  Widget _buildTopBar(BuildContext context, {double arrowOffset = 4.0}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(arrowOffset + 8, 8, 16, 8),
       child: Row(
         children: [
           IconButton(
@@ -190,38 +179,27 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ============================================
-  // BOTÓN "INICIAR PARTIDA" (Modificado con _isLoading)
-  // ============================================
+  // ── Botón "Iniciar Partida" ──────────────────────────────────────────
+  // Deshabilitado cuando el slot de personalización está seleccionado
   Widget _buildStartButton(BuildContext context, double? minWidth) {
-    final selectedCharacter = ref.watch(selectedCharacterProvider);
-    final isCustomSlot = selectedCharacter.isCustomSlot;
-
-    if (_isLoading) {
-      return SizedBox(
-        height: 50,
-        width: minWidth,
-        child: const Center(
-          child: CircularProgressIndicator(color: Colors.tealAccent),
-        ),
-      );
-    }
-
-    // Si la card seleccionada es "Personalizar", el botón se deshabilita
-    final bool enabled = !isCustomSlot;
+    final isCustomSlot = ref.watch(selectedCharacterProvider).isCustomSlot;
+    final bool enabled = !isCustomSlot && !_gameStarting;
 
     return ElevatedButton.icon(
       onPressed: enabled ? () => _startGame(context) : null,
       icon: Icon(
-        enabled ? Icons.play_arrow_rounded : Icons.lock_outline,
-        size: 26,
+        isCustomSlot
+            ? Icons.lock_outline
+            : (_gameStarting ? Icons.hourglass_top : Icons.play_arrow_rounded),
+        size: 22,
       ),
       label: Text(
-        enabled ? 'Iniciar Partida' : 'Personaje no disponible',
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
+        isCustomSlot
+            ? 'Personaje no disponible'
+            : (_gameStarting ? 'Iniciando...' : 'Iniciar Partida'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.tealAccent.shade700,
@@ -229,53 +207,83 @@ class _CharacterSelectionScreenState
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         minimumSize: minWidth != null ? Size(minWidth, 50) : null,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 6,
+        elevation: 2,
         disabledBackgroundColor: Colors.grey.shade800,
         disabledForegroundColor: Colors.white38,
       ),
     );
   }
 
-  // ============================================
-  // CARRUSEL PRINCIPAL
-  // ============================================
-  Widget _buildCarousel(List characters, int selectedIndex) {
+  // ── Botón "Editar / Crear personaje" ────────────────────────────────
+  // Cambia label e ícono según si el slot activo es de personalización
+  Widget _buildEditButton(BuildContext context) {
+    final isCustomSlot = ref.watch(selectedCharacterProvider).isCustomSlot;
+
+    return ElevatedButton.icon(
+      onPressed: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Editor de personaje próximamente...')),
+        );
+      },
+      icon: Icon(
+        isCustomSlot ? Icons.add_circle_outline : Icons.edit_outlined,
+        size: 22,
+      ),
+      label: Text(
+        isCustomSlot ? 'Crear personaje' : 'Editar personaje',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1F2A3A),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        minimumSize: const Size(double.infinity, 50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: Colors.tealAccent.withOpacity(0.5),
+            width: 1.5,
+          ),
+        ),
+        elevation: 2,
+        disabledBackgroundColor: Colors.grey.shade800,
+        disabledForegroundColor: Colors.white38,
+      ),
+    );
+  }
+
+  // ── Carrusel de personajes con flechas de navegación ─────────────────
+  // arrowOffset controla la posición horizontal de las flechas
+  Widget _buildCarousel(List characters, int selectedIndex,
+      {double arrowOffset = 4.0}) {
     return Stack(
       alignment: Alignment.center,
       children: [
         PageView.builder(
           controller: _pageController,
           itemCount: characters.length,
-          onPageChanged: (i) {
-            ref.read(selectedCharacterIndexProvider.notifier).state = i;
-          },
-          itemBuilder: (context, index) {
-            final isSelected = index == selectedIndex;
-            return CharacterCard(
-              character: characters[index],
-              isSelected: isSelected,
-            );
-          },
+          onPageChanged: (i) =>
+              ref.read(selectedCharacterIndexProvider.notifier).state = i,
+          itemBuilder: (context, index) => CharacterCard(
+            character: characters[index],
+            isSelected: index == selectedIndex,
+          ),
         ),
-
-        // Flecha izquierda
         Positioned(
-          left: 4,
+          left: arrowOffset,
           child: _arrowButton(
             icon: Icons.chevron_left,
-            enabled: selectedIndex > 0 &&
-                !_isLoading, // Deshabilita si está cargando
+            enabled: selectedIndex > 0,
             onTap: () => _goTo(selectedIndex - 1, characters.length),
           ),
         ),
-
-        // Flecha derecha
         Positioned(
-          right: 4,
+          right: arrowOffset,
           child: _arrowButton(
             icon: Icons.chevron_right,
-            enabled: selectedIndex < characters.length - 1 &&
-                !_isLoading, // Deshabilita si está cargando
+            enabled: selectedIndex < characters.length - 1,
             onTap: () => _goTo(selectedIndex + 1, characters.length),
           ),
         ),
@@ -283,6 +291,7 @@ class _CharacterSelectionScreenState
     );
   }
 
+  // ── Botón circular de flecha ─────────────────────────────────────────
   Widget _arrowButton({
     required IconData icon,
     required bool enabled,
@@ -306,9 +315,7 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ============================================
-  // INDICADOR DE PÁGINAS (puntitos)
-  // ============================================
+  // ── Indicador de página (puntitos animados) ──────────────────────────
   Widget _buildPageIndicator(int total, int selected) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
