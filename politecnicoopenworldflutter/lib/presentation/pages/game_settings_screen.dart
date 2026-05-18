@@ -171,7 +171,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
                   ],
                 ),
               ),
-               _buildActionBar(hasChanges),
+              _buildActionBar(hasChanges),
             ],
           ),
         ),
@@ -342,54 +342,78 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
   }
 
   Widget _buildMapProviderSelector() {
+    // Agrupa los providers por categoría preservando el orden del enum
+    final Map<MapTileCategory, List<MapTileProvider>> grouped = {};
+    for (final provider in MapTileProvider.values) {
+      grouped.putIfAbsent(provider.category, () => []).add(provider);
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
-        children: MapTileProvider.values.map((provider) {
-          final isSelected = _mapProvider == provider;
-          return GestureDetector(
-            onTap: () => setState(() => _mapProvider = provider),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.tealAccent.withOpacity(0.15)
-                    : Colors.white.withOpacity(0.04),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color:
-                      isSelected ? Colors.tealAccent.shade400 : Colors.white12,
-                  width: isSelected ? 1.5 : 1,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final entry in grouped.entries) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 6, left: 2),
+              child: Text(
+                entry.key.label.toUpperCase(),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 10,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    isSelected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    color: isSelected
-                        ? Colors.tealAccent.shade400
-                        : Colors.white38,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    provider.label,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 14,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ],
+            ),
+            ...entry.value.map(_buildProviderTile),
+            const SizedBox(height: 4),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProviderTile(MapTileProvider provider) {
+    final isSelected = _mapProvider == provider;
+    return GestureDetector(
+      onTap: () => setState(() => _mapProvider = provider),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.tealAccent.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? Colors.tealAccent.shade400 : Colors.white12,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: isSelected ? Colors.tealAccent.shade400 : Colors.white38,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                provider.label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white70,
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
-          );
-        }).toList(),
+          ],
+        ),
       ),
     );
   }

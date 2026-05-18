@@ -72,7 +72,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 urlTemplate: tileProvider.url, // URL del proveedor seleccionado
                 subdomains: tileProvider.subdomains,
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
-                maxNativeZoom: 19,
+                maxNativeZoom: tileProvider.maxZoom,
               ),
               // Marker del jugador
               MarkerLayer(
@@ -179,6 +179,31 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             left: 0,
             right: 0,
             child: GameControls(),
+          ),
+
+          // ============================================
+          // CAPA 5: ATRIBUCIÓN DEL PROVEEDOR DE TILES
+          // ============================================
+          Positioned(
+            bottom: 4,
+            right: 6,
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  tileProvider.attribution,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 9,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
