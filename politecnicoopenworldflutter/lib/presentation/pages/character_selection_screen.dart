@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:politecnicoopenworldflutter/core/utils/app_logger.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../state/character_provider.dart';
 import '../widgets/character_card.dart';
 import 'loading_screen.dart';
@@ -17,8 +19,6 @@ class CharacterSelectionScreen extends ConsumerStatefulWidget {
 class _CharacterSelectionScreenState
     extends ConsumerState<CharacterSelectionScreen> {
   late final PageController _pageController;
-
-  // Evita que el botón dispare múltiples navegaciones simultáneas
   bool _gameStarting = false;
 
   @override
@@ -36,7 +36,6 @@ class _CharacterSelectionScreenState
     super.dispose();
   }
 
-  // ── Navegación al carrusel ───────────────────────────────────────────
   void _goTo(int index, int total) {
     if (index < 0 || index >= total) return;
     _pageController.animateToPage(
@@ -46,7 +45,6 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ── Inicia la partida navegando a LoadingScreen ──────────────────────
   void _startGame(BuildContext context) {
     if (_gameStarting) return;
     setState(() => _gameStarting = true);
@@ -61,29 +59,23 @@ class _CharacterSelectionScreenState
         MaterialPageRoute(builder: (_) => const LoadingScreen()),
       );
     } catch (_) {
-      if (mounted) {
-        setState(() => _gameStarting = false);
-      }
+      if (mounted) setState(() => _gameStarting = false);
     }
   }
 
-  // ── Build principal ──────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final theme = ref.appTheme;
     final characters = ref.watch(availableCharactersProvider);
     final selectedIndex = ref.watch(selectedCharacterIndexProvider);
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0B1220),
-              Color(0xFF152234),
-              Color(0xFF1F3A5F),
-            ],
+            colors: theme.backgroundGradient,
           ),
         ),
         child: OrientationBuilder(
@@ -93,8 +85,8 @@ class _CharacterSelectionScreenState
               left: isPortrait,
               right: isPortrait,
               child: isPortrait
-                  ? _buildVerticalLayout(context, characters, selectedIndex)
-                  : _buildHorizontalLayout(context, characters, selectedIndex),
+                  ? _buildVerticalLayout(theme, characters, selectedIndex)
+                  : _buildHorizontalLayout(theme, characters, selectedIndex),
             );
           },
         ),
@@ -102,25 +94,25 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ── Layout vertical (portrait) ───────────────────────────────────────
   Widget _buildVerticalLayout(
-      BuildContext context, List characters, int selectedIndex) {
+      AppTheme theme, List characters, int selectedIndex) {
     return Column(
       children: [
-        _buildTopBar(context, arrowOffset: 4.0),
+        _buildTopBar(theme, arrowOffset: 4.0),
         const SizedBox(height: 8),
         Expanded(
-          child: _buildCarousel(characters, selectedIndex, arrowOffset: 4.0),
+          child:
+              _buildCarousel(theme, characters, selectedIndex, arrowOffset: 4),
         ),
         const SizedBox(height: 14),
-        _buildPageIndicator(characters.length, selectedIndex),
+        _buildPageIndicator(theme, characters.length, selectedIndex),
         Padding(
           padding: const EdgeInsets.all(10.0),
           child: Row(
             children: [
-              Expanded(child: _buildEditButton(context)),
+              Expanded(child: _buildEditButton(theme)),
               const SizedBox(width: 12),
-              Expanded(child: _buildStartButton(context, double.infinity)),
+              Expanded(child: _buildStartButton(theme, double.infinity)),
             ],
           ),
         ),
@@ -128,25 +120,25 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ── Layout horizontal (landscape) ───────────────────────────────────
   Widget _buildHorizontalLayout(
-      BuildContext context, List characters, int selectedIndex) {
+      AppTheme theme, List characters, int selectedIndex) {
     return Column(
       children: [
-        _buildTopBar(context, arrowOffset: 60.0),
+        _buildTopBar(theme, arrowOffset: 60.0),
         Expanded(
-          child: _buildCarousel(characters, selectedIndex, arrowOffset: 60.0),
+          child:
+              _buildCarousel(theme, characters, selectedIndex, arrowOffset: 60),
         ),
         const SizedBox(height: 8),
-        _buildPageIndicator(characters.length, selectedIndex),
+        _buildPageIndicator(theme, characters.length, selectedIndex),
         const SizedBox(height: 6),
         Padding(
           padding: const EdgeInsets.fromLTRB(50.0, 0, 50.0, 14.0),
           child: Row(
             children: [
-              Expanded(child: _buildEditButton(context)),
+              Expanded(child: _buildEditButton(theme)),
               const SizedBox(width: 12),
-              Expanded(child: _buildStartButton(context, double.infinity)),
+              Expanded(child: _buildStartButton(theme, double.infinity)),
             ],
           ),
         ),
@@ -154,21 +146,20 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ── Barra superior con título y botón de regreso ─────────────────────
-  Widget _buildTopBar(BuildContext context, {double arrowOffset = 4.0}) {
+  Widget _buildTopBar(AppTheme theme, {double arrowOffset = 4.0}) {
     return Padding(
       padding: EdgeInsets.fromLTRB(arrowOffset + 8, 8, 16, 8),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+            icon: Icon(Icons.arrow_back, color: theme.textPrimary, size: 28),
             onPressed: () => Navigator.pop(context),
           ),
           const SizedBox(width: 4),
-          const Text(
+          Text(
             'Elegir Personaje',
             style: TextStyle(
-              color: Colors.white,
+              color: theme.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
@@ -179,11 +170,9 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ── Botón "Iniciar Partida" ──────────────────────────────────────────
-  // Deshabilitado cuando el slot de personalización está seleccionado
-  Widget _buildStartButton(BuildContext context, double? minWidth) {
+  Widget _buildStartButton(AppTheme theme, double? minWidth) {
     final isCustomSlot = ref.watch(selectedCharacterProvider).isCustomSlot;
-    final bool enabled = !isCustomSlot && !_gameStarting;
+    final enabled = !isCustomSlot && !_gameStarting;
 
     return ElevatedButton.icon(
       onPressed: enabled ? () => _startGame(context) : null,
@@ -202,21 +191,19 @@ class _CharacterSelectionScreenState
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.tealAccent.shade700,
-        foregroundColor: Colors.white,
+        backgroundColor: theme.buttonPrimary,
+        foregroundColor: theme.buttonPrimaryText,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         minimumSize: minWidth != null ? Size(minWidth, 50) : null,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 2,
-        disabledBackgroundColor: Colors.grey.shade800,
-        disabledForegroundColor: Colors.white38,
+        disabledBackgroundColor: theme.surfaceOverlay,
+        disabledForegroundColor: theme.textTertiary,
       ),
     );
   }
 
-  // ── Botón "Editar / Crear personaje" ────────────────────────────────
-  // Cambia label e ícono según si el slot activo es de personalización
-  Widget _buildEditButton(BuildContext context) {
+  Widget _buildEditButton(AppTheme theme) {
     final isCustomSlot = ref.watch(selectedCharacterProvider).isCustomSlot;
 
     return ElevatedButton.icon(
@@ -236,28 +223,28 @@ class _CharacterSelectionScreenState
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1F2A3A),
-        foregroundColor: Colors.white,
+        backgroundColor: theme.surfacePrimary,
+        foregroundColor: theme.textPrimary,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         minimumSize: const Size(double.infinity, 50),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: Colors.tealAccent.withOpacity(0.5),
+            color: theme.accentSecondary.withValues(alpha: 0.5),
             width: 1.5,
           ),
         ),
         elevation: 2,
-        disabledBackgroundColor: Colors.grey.shade800,
-        disabledForegroundColor: Colors.white38,
       ),
     );
   }
 
-  // ── Carrusel de personajes con flechas de navegación ─────────────────
-  // arrowOffset controla la posición horizontal de las flechas
-  Widget _buildCarousel(List characters, int selectedIndex,
-      {double arrowOffset = 4.0}) {
+  Widget _buildCarousel(
+    AppTheme theme,
+    List characters,
+    int selectedIndex, {
+    double arrowOffset = 4.0,
+  }) {
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -274,6 +261,7 @@ class _CharacterSelectionScreenState
         Positioned(
           left: arrowOffset,
           child: _arrowButton(
+            theme: theme,
             icon: Icons.chevron_left,
             enabled: selectedIndex > 0,
             onTap: () => _goTo(selectedIndex - 1, characters.length),
@@ -282,6 +270,7 @@ class _CharacterSelectionScreenState
         Positioned(
           right: arrowOffset,
           child: _arrowButton(
+            theme: theme,
             icon: Icons.chevron_right,
             enabled: selectedIndex < characters.length - 1,
             onTap: () => _goTo(selectedIndex + 1, characters.length),
@@ -291,14 +280,14 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ── Botón circular de flecha ─────────────────────────────────────────
   Widget _arrowButton({
+    required AppTheme theme,
     required IconData icon,
     required bool enabled,
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.black.withOpacity(enabled ? 0.45 : 0.15),
+      color: Colors.black.withValues(alpha: enabled ? 0.45 : 0.15),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -307,7 +296,7 @@ class _CharacterSelectionScreenState
           padding: const EdgeInsets.all(8),
           child: Icon(
             icon,
-            color: enabled ? Colors.white : Colors.white24,
+            color: enabled ? theme.textPrimary : theme.textTertiary,
             size: 32,
           ),
         ),
@@ -315,8 +304,7 @@ class _CharacterSelectionScreenState
     );
   }
 
-  // ── Indicador de página (puntitos animados) ──────────────────────────
-  Widget _buildPageIndicator(int total, int selected) {
+  Widget _buildPageIndicator(AppTheme theme, int total, int selected) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(total, (i) {
@@ -328,8 +316,8 @@ class _CharacterSelectionScreenState
           height: 8,
           decoration: BoxDecoration(
             color: active
-                ? Colors.tealAccent.shade400
-                : Colors.white.withOpacity(0.4),
+                ? theme.accentSecondary
+                : theme.textPrimary.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(4),
           ),
         );

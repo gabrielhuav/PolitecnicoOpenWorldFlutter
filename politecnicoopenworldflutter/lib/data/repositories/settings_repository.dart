@@ -3,17 +3,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/utils/game_settings_providers.dart';
 import '../../core/utils/map_tile_provider.dart';
 
+import '../../core/theme/theme_providers.dart';
+
+import '../../core/theme/app_themes.dart';
+
 class SettingsRepository {
   final SharedPreferences _prefs;
 
   SettingsRepository(this._prefs);
 
+  // Tema
+  String get themeId => _prefs.getString('theme_id') ?? AppThemes.fallback.id;
+  Future<void> setThemeId(String id) => _prefs.setString('theme_id', id);
+
   // Tráfico
   bool get isTrafficEnabled => _prefs.getBool('traffic_enabled') ?? true;
-  Future<void> setTrafficEnabled(bool value) => _prefs.setBool('traffic_enabled', value);
+  Future<void> setTrafficEnabled(bool value) =>
+      _prefs.setBool('traffic_enabled', value);
 
   double get trafficDensity => _prefs.getDouble('traffic_density') ?? 1.0;
-  Future<void> setTrafficDensity(double value) => _prefs.setDouble('traffic_density', value);
+  Future<void> setTrafficDensity(double value) =>
+      _prefs.setDouble('traffic_density', value);
 
   // Proveedor de Mapa
   MapTileProvider get mapProvider {

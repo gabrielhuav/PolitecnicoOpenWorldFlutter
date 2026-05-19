@@ -8,6 +8,7 @@ import 'core/utils/app_logger.dart';
 import 'core/utils/game_settings_providers.dart';
 import 'core/utils/map_tile_provider.dart';
 import 'core/utils/providers.dart';
+import 'core/theme/theme_providers.dart';
 import 'data/repositories/settings_repository.dart';
 
 void main() async {
@@ -30,10 +31,9 @@ void main() async {
       error: error,
       stackTrace: stack,
     );
-    return true; // Indica que el error ha sido manejado
+    return true;
   };
 
-  // ProviderScope es todo lo que Riverpod necesita para vivir
   runApp(
     ProviderScope(
       overrides: [
@@ -59,23 +59,24 @@ void main() async {
         freeMovementProvider.overrideWith(
           (ref) => settingsRepository.freeMovement,
         ),
+        selectedThemeIdProvider.overrideWith(
+          (ref) => settingsRepository.themeId,
+        ),
       ],
       child: const PolitecnicoOpenWorldApp(),
     ),
   );
 }
 
-class PolitecnicoOpenWorldApp extends StatelessWidget {
+class PolitecnicoOpenWorldApp extends ConsumerWidget {
   const PolitecnicoOpenWorldApp({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(currentThemeProvider);
     return MaterialApp(
       title: 'Politécnico Open World',
-      theme: ThemeData(
-        primaryColor: const Color(0xFF0F2027),
-        useMaterial3: true,
-      ),
+      theme: theme.toFlutterThemeData(),
       home: const StartMenuScreen(),
       debugShowCheckedModeBanner: false,
     );

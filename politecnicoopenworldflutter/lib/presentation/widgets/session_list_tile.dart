@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-
+import '../../core/theme/app_theme.dart';
 import '../../domain/entities/game_session.dart';
 
 /// Tarjeta visual de una partida guardada. Independiente de Riverpod para
 /// que se pueda reutilizar y testear de forma aislada.
 class SessionListTile extends StatelessWidget {
   final GameSession session;
+  final AppTheme theme;
   final VoidCallback onResume;
   final VoidCallback onDelete;
 
   const SessionListTile({
     super.key,
     required this.session,
+    required this.theme,
     required this.onResume,
     required this.onDelete,
   });
@@ -21,24 +23,23 @@ class SessionListTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: theme.surfaceOverlay,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.tealAccent.withValues(alpha: 0.25),
+          color: theme.borderAccent,
           width: 1,
         ),
       ),
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: Colors.tealAccent.shade700,
-          child: const Icon(Icons.person, color: Colors.white),
+          backgroundColor: theme.buttonPrimary,
+          child: Icon(Icons.person, color: theme.buttonPrimaryText),
         ),
         title: Text(
           session.characterName,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: theme.textPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
@@ -50,15 +51,15 @@ class SessionListTile extends StatelessWidget {
             Text(
               '${session.lastLat.toStringAsFixed(5)}, '
               '${session.lastLon.toStringAsFixed(5)}',
-              style: const TextStyle(
-                color: Colors.white60,
+              style: TextStyle(
+                color: theme.textSecondary,
                 fontSize: 12,
-                fontFeatures: [FontFeature.tabularFigures()],
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
             Text(
               'Actualizada: ${_formatDate(session.updatedAt)}',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: TextStyle(color: theme.textTertiary, fontSize: 11),
             ),
           ],
         ),
@@ -72,8 +73,8 @@ class SessionListTile extends StatelessWidget {
               onPressed: onDelete,
             ),
             IconButton(
-              icon: const Icon(Icons.play_arrow,
-                  color: Colors.tealAccent, size: 26),
+              icon: Icon(Icons.play_arrow,
+                  color: theme.accentSecondary, size: 26),
               tooltip: 'Reanudar partida',
               onPressed: onResume,
             ),

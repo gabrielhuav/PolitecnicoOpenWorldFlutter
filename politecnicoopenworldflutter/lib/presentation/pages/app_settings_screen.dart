@@ -1,104 +1,130 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-class AppSettingsScreen extends StatelessWidget {
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_themes.dart';
+import '../../core/theme/theme_extensions.dart';
+import '../../core/theme/theme_providers.dart';
+import '../../core/utils/providers.dart';
+
+class AppSettingsScreen extends ConsumerStatefulWidget {
   const AppSettingsScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return const _AppSettingsView();
+  ConsumerState<AppSettingsScreen> createState() => _AppSettingsScreenState();
+}
+
+class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
+  late final Future<PackageInfo> _packageInfoFuture =
+      PackageInfo.fromPlatform();
+
+  late String _themeId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFromProviders();
   }
-}
 
-class _AppSettingsView extends StatefulWidget {
-  const _AppSettingsView();
+  void _loadFromProviders() {
+    _themeId = ref.read(selectedThemeIdProvider);
+  }
 
-  @override
-  State<_AppSettingsView> createState() => _AppSettingsViewState();
-}
+  Future<void> _save() async {
+    final settingsRepository = ref.read(settingsRepositoryProvider);
+    ref.read(selectedThemeIdProvider.notifier).state = _themeId;
+    await settingsRepository.setThemeId(_themeId);
 
-class _AppSettingsViewState extends State<_AppSettingsView> {
-  late final Future<PackageInfo> _packageInfoFuture = PackageInfo.fromPlatform();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ajustes guardados'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    setState(() {});
+  }
+
+  void _reset() => setState(() => _loadFromProviders());
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.appTheme;
+    final savedThemeId = ref.watch(selectedThemeIdProvider);
+    final hasChanges = _themeId != savedThemeId;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0B1220),
-              Color(0xFF152234),
-              Color(0xFF1F3A5F),
-            ],
+            colors: theme.backgroundGradient,
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // ── Top bar ─────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back,
-                          color: Colors.white, size: 28),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Acerca de la app',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── Contenido (placeholder) ──────────────────────────────
+              _buildTopBar(theme),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
-                    FutureBuilder<PackageInfo>(
-                      future: _packageInfoFuture,
-                      builder: (context, snapshot) {
-                        final package = snapshot.data;
-                        final version = package == null
-                            ? 'Cargando...'
-                            : '${package.version}+${package.buildNumber}';
-                        return _buildInfoCard(
-                          icon: Icons.info_outline,
-                          title: 'Versión',
-                          value: version,
-                        );
-                      },
+                    _buildSection(
+                      theme: theme,
+                      icon: Icons.palette_outlined,
+                      title: 'Tema',
+                      children: [_buildThemeSelector(theme)],
                     ),
-                    _buildInfoCard(
-                      icon: Icons.code,
-                      title: 'Desarrolladores',
-                      value: 'Próximamente...',
-                    ),
-                    _buildInfoCard(
-                      icon: Icons.star_outline,
-                      title: 'Créditos',
-                      value: 'Próximamente...',
-                    ),
-                    _buildInfoCard(
-                      icon: Icons.map_outlined,
-                      title: 'Datos del mapa',
-                      value: 'OpenStreetMap contributors',
+                    _buildSection(
+                      theme: theme,
+                      icon: Icons.info_outline,
+                      title: 'Información',
+                      children: [
+                        FutureBuilder<PackageInfo>(
+                          future: _packageInfoFuture,
+                          builder: (context, snapshot) {
+                            final package = snapshot.data;
+                            final version = package == null
+                                ? 'Cargando...'
+                                : '${package.version}+${package.buildNumber}';
+                            return _buildInfoTile(
+                              theme: theme,
+                              icon: Icons.tag,
+                              title: 'Versión',
+                              value: version,
+                            );
+                          },
+                        ),
+                        _buildDivider(theme),
+                        _buildInfoTile(
+                          theme: theme,
+                          icon: Icons.code,
+                          title: 'Desarrolladores',
+                          value: 'Próximamente...',
+                        ),
+                        _buildDivider(theme),
+                        _buildInfoTile(
+                          theme: theme,
+                          icon: Icons.star_outline,
+                          title: 'Créditos',
+                          value: 'Próximamente...',
+                        ),
+                        _buildDivider(theme),
+                        _buildInfoTile(
+                          theme: theme,
+                          icon: Icons.map_outlined,
+                          title: 'Datos del mapa',
+                          value: 'OpenStreetMap contributors',
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+              _buildActionBar(theme, hasChanges),
             ],
           ),
         ),
@@ -106,25 +132,301 @@ class _AppSettingsViewState extends State<_AppSettingsView> {
     );
   }
 
-  Widget _buildInfoCard({
+  // ── Estructura ───────────────────────────────────────────────────────
+
+  Widget _buildTopBar(AppTheme theme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.arrow_back, color: theme.textPrimary, size: 28),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Acerca de la app',
+            style: TextStyle(
+              color: theme.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSection({
+    required AppTheme theme,
     required IconData icon,
     required String title,
-    required String value,
+    required List<Widget> children,
   }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Row(
+              children: [
+                Icon(icon, color: theme.accentSecondary, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  title.toUpperCase(),
+                  style: TextStyle(
+                    color: theme.accentSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: theme.surfaceOverlay,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: theme.borderAccent,
+                width: 1,
+              ),
+            ),
+            child: Column(children: children),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider(AppTheme theme) => Divider(
+        height: 1,
+        thickness: 1,
+        color: theme.borderSubtle,
+        indent: 16,
+        endIndent: 16,
+      );
+
+  Widget _buildActionBar(AppTheme theme, bool hasChanges) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.tealAccent.withOpacity(0.2),
-          width: 1,
+        color: theme.surfacePrimary.withValues(alpha: 0.9),
+        border: Border(
+          top: BorderSide(color: theme.borderAccent, width: 1),
         ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.tealAccent, size: 22),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: hasChanges ? _reset : null,
+              icon: const Icon(Icons.restore, size: 20),
+              label: const Text('Restablecer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.surfaceOverlay,
+                foregroundColor: theme.textPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: hasChanges ? theme.textTertiary : Colors.transparent,
+                  ),
+                ),
+                disabledBackgroundColor: theme.surfaceOverlay,
+                disabledForegroundColor: theme.textTertiary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: hasChanges ? _save : null,
+              icon: const Icon(Icons.save_outlined, size: 20),
+              label: const Text(
+                'Guardar cambios',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.buttonPrimary,
+                foregroundColor: theme.buttonPrimaryText,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                disabledBackgroundColor:
+                    theme.buttonPrimary.withValues(alpha: 0.3),
+                disabledForegroundColor: theme.textTertiary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Selector visual de temas ─────────────────────────────────────────
+
+  Widget _buildThemeSelector(AppTheme currentTheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Column(
+        children: themeOptions
+            .map((opt) => _buildThemeCard(currentTheme, opt))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildThemeCard(AppTheme currentTheme, ThemeOption option) {
+    final isSelected = _themeId == option.id;
+    // Detecta el alias "Sistema" si todavía existe
+    final isSystem = !AppThemes.all.any((t) => t.id == option.id);
+    final preview = isSystem ? null : AppThemes.byId(option.id);
+
+    return GestureDetector(
+      onTap: () => setState(() => _themeId = option.id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: currentTheme.surfaceOverlay,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? currentTheme.accentSecondary
+                : currentTheme.borderSubtle,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // ── Preview del gradiente ──
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                bottomLeft: Radius.circular(10),
+              ),
+              child: Container(
+                width: 72,
+                height: 82,
+                decoration: BoxDecoration(
+                  gradient: preview == null
+                      ? null
+                      : LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: preview.backgroundGradient,
+                        ),
+                  color: preview == null ? currentTheme.surfacePrimary : null,
+                ),
+                child: Center(
+                  child: Icon(
+                    option.icon,
+                    color: preview == null
+                        ? currentTheme.textPrimary
+                        : preview.textPrimary,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 14),
+
+            // ── Info ──
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Nombre con la fuente del tema
+                  Text(
+                    option.label,
+                    style: preview == null
+                        ? TextStyle(
+                            color: currentTheme.textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          )
+                        : GoogleFonts.getFont(
+                            preview.fontFamily,
+                            textStyle: TextStyle(
+                              color: currentTheme.textPrimary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (preview != null)
+                    Row(
+                      children: [
+                        _Swatch(color: preview.accentPrimary),
+                        const SizedBox(width: 6),
+                        _Swatch(color: preview.accentSecondary),
+                        const SizedBox(width: 6),
+                        _Swatch(color: preview.buttonPrimary),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            preview.fontFamily,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: currentTheme.textTertiary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      'Sigue al sistema',
+                      style: TextStyle(
+                        color: currentTheme.textTertiary,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // ── Indicador de selección ──
+            Padding(
+              padding: const EdgeInsets.only(right: 14, left: 8),
+              child: Icon(
+                isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: isSelected
+                    ? currentTheme.accentSecondary
+                    : currentTheme.textTertiary,
+                size: 22,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Información ──────────────────────────────────────────────────────
+
+  Widget _buildInfoTile({
+    required AppTheme theme,
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Icon(icon, color: theme.accentSecondary, size: 22),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -132,8 +434,8 @@ class _AppSettingsViewState extends State<_AppSettingsView> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white54,
+                  style: TextStyle(
+                    color: theme.textTertiary,
                     fontSize: 12,
                     letterSpacing: 0.5,
                   ),
@@ -141,8 +443,8 @@ class _AppSettingsViewState extends State<_AppSettingsView> {
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: theme.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
@@ -151,6 +453,24 @@ class _AppSettingsViewState extends State<_AppSettingsView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Swatch extends StatelessWidget {
+  final Color color;
+  const _Swatch({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white24, width: 0.5),
       ),
     );
   }

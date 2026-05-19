@@ -3,12 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
+import '../../core/utils/map_tile_provider.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
-import 'start_menu_screen.dart';
 import '../widgets/game_controls.dart';
-
-import '../../core/utils/map_tile_provider.dart';
+import 'start_menu_screen.dart';
 
 class WorldMapScreen extends ConsumerStatefulWidget {
   const WorldMapScreen({Key? key}) : super(key: key);
@@ -35,25 +36,20 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.appTheme;
     final playerPosition = ref.watch(playerMovementProvider);
     final character = ref.watch(selectedCharacterProvider);
     final tileProvider = ref.watch(mapTileProviderProvider);
 
-    // Cuando el jugador se mueve con los controles, recentramos el mapa.
     ref.listen<LatLng>(playerMovementProvider, (prev, next) {
       try {
         _mapController.move(next, _mapController.camera.zoom);
-      } catch (_) {
-        // El controller aún no está listo en el primer frame; lo ignoramos.
-      }
+      } catch (_) {}
     });
 
     return Scaffold(
       body: Stack(
         children: [
-          // ============================================
-          // CAPA 0: MAPA NATIVO (flutter_map + OSM tiles)
-          // ============================================
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -69,12 +65,11 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: tileProvider.url, // URL del proveedor seleccionado
+                urlTemplate: tileProvider.url,
                 subdomains: tileProvider.subdomains,
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
                 maxNativeZoom: tileProvider.maxZoom,
               ),
-              // Marker del jugador
               MarkerLayer(
                 markers: [
                   Marker(
@@ -82,24 +77,22 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                     width: 56,
                     height: 56,
                     alignment: Alignment.center,
-                    child: _PlayerMarker(),
+                    child: _PlayerMarker(theme: theme),
                   ),
                 ],
               ),
             ],
           ),
 
-          // ============================================
-          // CAPA 1: BOTÓN MENÚ (top-left)
-          // ============================================
+          // Botón menú
           Positioned(
             top: 50,
             left: 20,
             child: FloatingActionButton(
               heroTag: 'fab_menu',
               mini: true,
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black87,
+              backgroundColor: theme.surfacePrimary,
+              foregroundColor: theme.textPrimary,
               onPressed: () {
                 Navigator.pushReplacement(
                   context,
@@ -112,9 +105,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
           ),
 
-          // ============================================
-          // CAPA 2: HUD del personaje + coordenadas
-          // ============================================
+          // HUD del personaje
           Positioned(
             top: 50,
             right: 20,
@@ -124,7 +115,9 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 color: Colors.black.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: Colors.tealAccent.withValues(alpha: 0.4), width: 1),
+                  color: theme.borderAccent,
+                  width: 1,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -153,17 +146,15 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
           ),
 
-          // ============================================
-          // CAPA 3: BOTÓN DE RECENTRAR (sobre los controles)
-          // ============================================
+          // Recentrar
           Positioned(
             bottom: 220,
             right: 20,
             child: FloatingActionButton(
               heroTag: 'fab_recentrar',
               mini: true,
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black87,
+              backgroundColor: theme.surfacePrimary,
+              foregroundColor: theme.textPrimary,
               onPressed: () {
                 _mapController.move(playerPosition, _initialZoom);
               },
@@ -171,9 +162,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
           ),
 
-          // ============================================
-          // CAPA 4: CONTROLES (D-PAD)
-          // ============================================
+          // Controles
           const Positioned(
             bottom: 30,
             left: 0,
@@ -181,9 +170,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             child: GameControls(),
           ),
 
-          // ============================================
-          // CAPA 5: ATRIBUCIÓN DEL PROVEEDOR DE TILES
-          // ============================================
+          // Atribución
           Positioned(
             bottom: 4,
             right: 6,
@@ -211,28 +198,28 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   }
 }
 
-/// Marker visual del jugador.
 class _PlayerMarker extends StatelessWidget {
+  final AppTheme theme;
+  const _PlayerMarker({required this.theme});
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Halo
         Container(
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: Colors.tealAccent.withValues(alpha: 0.25),
+            color: theme.accentSecondary.withValues(alpha: 0.25),
             shape: BoxShape.circle,
           ),
         ),
-        // Punto principal
         Container(
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: Colors.tealAccent.shade700,
+            color: theme.buttonPrimary,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 3),
             boxShadow: const [
@@ -243,11 +230,7 @@ class _PlayerMarker extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.person,
-            color: Colors.white,
-            size: 18,
-          ),
+          child: const Icon(Icons.person, color: Colors.white, size: 18),
         ),
       ],
     );

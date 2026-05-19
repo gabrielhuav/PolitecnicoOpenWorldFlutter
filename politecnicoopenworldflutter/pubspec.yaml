@@ -7,11 +7,15 @@ environment:
   sdk: ">=3.2.3 <4.0.0"
 
 dependencies:
+  # Utilidades y Logging
   logger: ^2.3.0
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
   dio: ^5.3.2
+
+  # Fuentes y Estilos
+  google_fonts: ^6.2.1
 
   # Core & Utilidades
   equatable: ^2.0.5

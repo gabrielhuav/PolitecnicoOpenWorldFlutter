@@ -2,32 +2,30 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/theme_extensions.dart';
+import '../widgets/menu_button.dart';
 import 'app_settings_screen.dart';
 import 'character_selection_screen.dart';
 import 'debug_log_screen.dart';
 import 'game_settings_screen.dart';
 import 'load_game_screen.dart';
-import '../widgets/menu_button.dart';
 
-class StartMenuScreen extends StatelessWidget {
+class StartMenuScreen extends ConsumerWidget {
   const StartMenuScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.appTheme;
+
     return Scaffold(
       body: Stack(
         children: [
-          // ── Fondo + contenido principal ──────────────────────────────
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0F2027),
-                  Color(0xFF203A43),
-                  Color(0xFF2C5364),
-                ],
+                colors: theme.backgroundGradient,
               ),
             ),
             child: SafeArea(
@@ -40,16 +38,14 @@ class StartMenuScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // ── Botón ajustes de app (top-right) ─────────────────────────
           SafeArea(
             child: Align(
               alignment: Alignment.topRight,
               child: Padding(
                 padding: const EdgeInsets.all(8),
                 child: IconButton(
-                  icon: const Icon(Icons.settings,
-                      color: Colors.white70, size: 28),
+                  icon: Icon(Icons.settings,
+                      color: theme.textSecondary, size: 28),
                   tooltip: 'Ajustes de la aplicación',
                   onPressed: () {
                     Navigator.push(
@@ -68,7 +64,6 @@ class StartMenuScreen extends StatelessWidget {
   }
 }
 
-// ── Layout vertical ──────────────────────────────────────────────────
 class _PortraitLayout extends StatelessWidget {
   const _PortraitLayout({Key? key}) : super(key: key);
 
@@ -92,7 +87,6 @@ class _PortraitLayout extends StatelessWidget {
   }
 }
 
-// ── Layout horizontal ────────────────────────────────────────────────
 class _LandscapeLayout extends StatelessWidget {
   const _LandscapeLayout({Key? key}) : super(key: key);
 
@@ -118,26 +112,26 @@ class _LandscapeLayout extends StatelessWidget {
   }
 }
 
-// ── Logo y título ────────────────────────────────────────────────────
-class _LogoAndTitle extends StatelessWidget {
+class _LogoAndTitle extends ConsumerWidget {
   const _LogoAndTitle({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return const Column(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.appTheme;
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.map_outlined, size: 90, color: Colors.white70),
-        SizedBox(height: 15),
+        Icon(Icons.map_outlined, size: 90, color: theme.textSecondary),
+        const SizedBox(height: 15),
         Text(
           'Politécnico\nOpen World',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: theme.textPrimary,
             letterSpacing: 2.0,
-            shadows: [
+            shadows: const [
               Shadow(
                 blurRadius: 10.0,
                 color: Colors.black54,
@@ -151,7 +145,6 @@ class _LogoAndTitle extends StatelessWidget {
   }
 }
 
-// ── Botones de acción ────────────────────────────────────────────────
 class _ActionButtons extends ConsumerStatefulWidget {
   const _ActionButtons({Key? key}) : super(key: key);
 
@@ -201,9 +194,7 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
           title: 'Cargar Partida',
           icon: Icons.folder_open_rounded,
           isSecondary: true,
-          onPressed: _isNavigating
-              ? null
-              : _goToLoadGame,
+          onPressed: _isNavigating ? null : _goToLoadGame,
         ),
         const SizedBox(height: 15),
         MenuButton(
@@ -220,8 +211,6 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
                   );
                 },
         ),
-
-        // ── Solo visible en modo debug ────────────────────────────────
         if (kDebugMode) ...[
           const SizedBox(height: 15),
           MenuButton(
@@ -233,8 +222,7 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
                 : () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const DebugLogScreen()),
+                      MaterialPageRoute(builder: (_) => const DebugLogScreen()),
                     );
                   },
           ),

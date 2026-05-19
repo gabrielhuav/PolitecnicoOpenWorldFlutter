@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../domain/entities/character.dart';
 
-/// Card del personaje. Muestra un cuadro vacío como placeholder de imagen.
-/// Cuando tengas la imagen real, sólo agrega `imagePath` al `Character` y
-/// el widget la dibujará automáticamente.
-class CharacterCard extends StatelessWidget {
+class CharacterCard extends ConsumerWidget {
   final Character character;
   final bool isSelected;
 
@@ -15,7 +14,9 @@ class CharacterCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.appTheme;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
@@ -24,16 +25,16 @@ class CharacterCard extends StatelessWidget {
         vertical: isSelected ? 0 : 24,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F2A3A),
+        color: theme.surfacePrimary,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected ? Colors.tealAccent.shade400 : Colors.white24,
+          color: isSelected ? theme.accentSecondary : theme.borderSubtle,
           width: isSelected ? 3 : 1.5,
         ),
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: Colors.tealAccent.withValues(alpha: 0.35),
+                  color: theme.accentSecondary.withValues(alpha: 0.35),
                   blurRadius: 18,
                   spreadRadius: 1,
                 ),
@@ -44,28 +45,25 @@ class CharacterCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(13),
         child: Column(
           children: [
-            // ---------- ZONA DE IMAGEN (PLACEHOLDER) ----------
             Expanded(
               child: Container(
                 width: double.infinity,
-                color: const Color(0xFF0F1722),
-                child: _buildImagePlaceholder(),
+                color: theme.surfacePrimary,
+                child: _buildImagePlaceholder(theme),
               ),
             ),
-
-            // ---------- INFO ----------
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              color: const Color(0xFF263243),
+              color: theme.surfaceSecondary,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     character.name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: theme.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -76,7 +74,7 @@ class CharacterCard extends StatelessWidget {
                   Text(
                     character.description,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.65),
+                      color: theme.textSecondary,
                       fontSize: 12,
                     ),
                     maxLines: 2,
@@ -91,41 +89,40 @@ class CharacterCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImagePlaceholder() {
-    // Si en el futuro le pasas imagePath, lo pinta directo:
+  Widget _buildImagePlaceholder(theme) {
     if (character.imagePath != null && character.imagePath!.isNotEmpty) {
-      return Image.asset(
-        character.imagePath!,
-        fit: BoxFit.cover,
-      );
+      return Image.asset(character.imagePath!, fit: BoxFit.cover);
     }
-
-    // Cuadro vacío estilizado mientras no haya imagen.
     return Center(
       child: DottedBorderBox(
         isCustomSlot: character.isCustomSlot,
+        accent: theme.accentSecondary,
+        muted: theme.textTertiary,
       ),
     );
   }
 }
 
-/// Cuadro vacío con bordes punteados para indicar "espacio para imagen".
 class DottedBorderBox extends StatelessWidget {
   final bool isCustomSlot;
-  const DottedBorderBox({Key? key, this.isCustomSlot = false})
-      : super(key: key);
+  final Color accent;
+  final Color muted;
+  const DottedBorderBox({
+    Key? key,
+    required this.accent,
+    required this.muted,
+    this.isCustomSlot = false,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final color = isCustomSlot ? accent : muted;
     return CustomPaint(
-      painter: _DashedRectPainter(
-        color: isCustomSlot ? Colors.tealAccent.shade100 : Colors.white38,
-      ),
+      painter: _DashedRectPainter(color: color),
       child: Container(
         margin: const EdgeInsets.all(20),
         alignment: Alignment.center,
         child: FittedBox(
-          // ← envuelve la Column
           fit: BoxFit.scaleDown,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -133,16 +130,13 @@ class DottedBorderBox extends StatelessWidget {
               Icon(
                 isCustomSlot ? Icons.add_circle_outline : Icons.image_outlined,
                 size: 64,
-                color:
-                    isCustomSlot ? Colors.tealAccent.shade100 : Colors.white54,
+                color: color,
               ),
               const SizedBox(height: 8),
               Text(
                 isCustomSlot ? 'Crear nuevo' : 'Imagen pendiente',
                 style: TextStyle(
-                  color: isCustomSlot
-                      ? Colors.tealAccent.shade100
-                      : Colors.white54,
+                  color: color,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -165,50 +159,24 @@ class _DashedRectPainter extends CustomPainter {
       ..color = color
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
-
     const dashWidth = 8.0;
     const dashSpace = 6.0;
     final rect = Rect.fromLTWH(8, 8, size.width - 16, size.height - 16);
-
-    // Top
-    double startX = rect.left;
-    while (startX < rect.right) {
+    double x = rect.left;
+    while (x < rect.right) {
       canvas.drawLine(
-        Offset(startX, rect.top),
-        Offset(startX + dashWidth, rect.top),
-        paint,
-      );
-      startX += dashWidth + dashSpace;
+          Offset(x, rect.top), Offset(x + dashWidth, rect.top), paint);
+      canvas.drawLine(
+          Offset(x, rect.bottom), Offset(x + dashWidth, rect.bottom), paint);
+      x += dashWidth + dashSpace;
     }
-    // Bottom
-    startX = rect.left;
-    while (startX < rect.right) {
+    double y = rect.top;
+    while (y < rect.bottom) {
       canvas.drawLine(
-        Offset(startX, rect.bottom),
-        Offset(startX + dashWidth, rect.bottom),
-        paint,
-      );
-      startX += dashWidth + dashSpace;
-    }
-    // Left
-    double startY = rect.top;
-    while (startY < rect.bottom) {
+          Offset(rect.left, y), Offset(rect.left, y + dashWidth), paint);
       canvas.drawLine(
-        Offset(rect.left, startY),
-        Offset(rect.left, startY + dashWidth),
-        paint,
-      );
-      startY += dashWidth + dashSpace;
-    }
-    // Right
-    startY = rect.top;
-    while (startY < rect.bottom) {
-      canvas.drawLine(
-        Offset(rect.right, startY),
-        Offset(rect.right, startY + dashWidth),
-        paint,
-      );
-      startY += dashWidth + dashSpace;
+          Offset(rect.right, y), Offset(rect.right, y + dashWidth), paint);
+      y += dashWidth + dashSpace;
     }
   }
 

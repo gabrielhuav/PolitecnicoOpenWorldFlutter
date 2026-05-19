@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/theme_extensions.dart';
 
-class MenuButton extends StatelessWidget {
+class MenuButton extends ConsumerWidget {
   final String title;
   final IconData icon;
-  final VoidCallback?
-      onPressed; // Lo hacemos nullable para poder desactivar el botón
+  final VoidCallback? onPressed;
   final bool isSecondary;
-  final bool isLoading; // NUEVA PROPIEDAD
+  final bool isLoading;
 
   const MenuButton({
     Key? key,
@@ -14,28 +15,29 @@ class MenuButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.isSecondary = false,
-    this.isLoading = false, // Por defecto es falso
+    this.isLoading = false,
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.appTheme;
+
+    // Colores efectivos según variante
+    final Color bg = isSecondary ? Colors.transparent : theme.buttonPrimary;
+    final Color fg = isSecondary ? theme.textPrimary : theme.buttonPrimaryText;
+
     return SizedBox(
       width: double.infinity,
       height: 55,
       child: ElevatedButton.icon(
-        // Si está cargando, desactivamos el botón mandando null al onPressed
         onPressed: isLoading ? null : onPressed,
-        // Si está cargando, no mostramos ícono
-        icon: isLoading
-            ? const SizedBox.shrink()
-            : Icon(icon, color: isSecondary ? Colors.white : Colors.black87),
-        // Si está cargando, mostramos el spinner; si no, el texto normal
+        icon: isLoading ? const SizedBox.shrink() : Icon(icon, color: fg),
         label: isLoading
             ? SizedBox(
                 height: 24,
                 width: 24,
                 child: CircularProgressIndicator(
-                  color: isSecondary ? Colors.white : Colors.black87,
+                  color: fg,
                   strokeWidth: 3,
                 ),
               )
@@ -44,22 +46,22 @@ class MenuButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: isSecondary ? Colors.white : Colors.black87,
+                  color: fg,
                 ),
               ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSecondary ? Colors.transparent : Colors.white,
-          foregroundColor: isSecondary ? Colors.white : Colors.black87,
+          backgroundColor: bg,
+          foregroundColor: fg,
           elevation: isSecondary ? 0 : 5,
           side: isSecondary
-              ? const BorderSide(color: Colors.white54, width: 2)
+              ? BorderSide(color: theme.textTertiary, width: 2)
               : BorderSide.none,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          // Mantiene el color cuando está deshabilitado por el "isLoading"
-          disabledBackgroundColor:
-              isSecondary ? Colors.transparent : Colors.white70,
+          disabledBackgroundColor: isSecondary
+              ? Colors.transparent
+              : theme.buttonPrimary.withValues(alpha: 0.7),
         ),
       ),
     );
