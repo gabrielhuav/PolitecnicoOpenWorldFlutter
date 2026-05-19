@@ -10,6 +10,7 @@ import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
 import '../widgets/game_controls.dart';
 import 'start_menu_screen.dart';
+import 'game_menu_screen.dart';
 
 class WorldMapScreen extends ConsumerStatefulWidget {
   const WorldMapScreen({Key? key}) : super(key: key);
@@ -94,10 +95,10 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
               backgroundColor: theme.surfacePrimary,
               foregroundColor: theme.textPrimary,
               onPressed: () {
-                Navigator.pushReplacement(
+                Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const StartMenuScreen(),
+                    builder: (context) => const GameMenuScreen(),
                   ),
                 );
               },
