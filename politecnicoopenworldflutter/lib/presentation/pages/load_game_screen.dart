@@ -18,8 +18,9 @@ class LoadGameScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.appTheme;
+    // Escuchamos la lista de partidas desde SQLite
     final sessionsAsync = ref.watch(allGameSessionsProvider);
-
+    
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -151,6 +152,8 @@ class LoadGameScreen extends ConsumerWidget {
     ref
         .read(playerMovementProvider.notifier)
         .teleport(LatLng(session.lastLat, session.lastLon));
+
+    if (!context.mounted) return;
 
     navigator.pushReplacement(
       MaterialPageRoute(builder: (_) => const WorldMapScreen()),

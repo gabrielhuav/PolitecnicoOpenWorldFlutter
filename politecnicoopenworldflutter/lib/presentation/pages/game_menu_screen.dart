@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
+import '../../core/utils/session_providers.dart'; 
+import '../state/game_session_notifier.dart';     
+import '../state/player_movement_notifier.dart';  
 import '../widgets/menu_button.dart';
 import 'game_settings_screen.dart';
 import 'start_menu_screen.dart';
@@ -65,7 +68,7 @@ class GameMenuScreen extends ConsumerWidget {
                           title: 'Guardar partida',
                           icon: Icons.save_outlined,
                           isSecondary: true,
-                          onPressed: () => _showSavePlaceholder(context),
+                          onPressed: () => _handleSaveGame(context, ref),
                         ),
                         const SizedBox(height: 15),
                         MenuButton(
@@ -113,13 +116,51 @@ class GameMenuScreen extends ConsumerWidget {
     );
   }
 
-  void _showSavePlaceholder(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Guardado de partidas próximamente...'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+ /// Gestiona el guardado asíncrono leyendo la posición actual y enviándola a Drift
+  Future<void> _handleSaveGame(BuildContext context, WidgetRef ref) async {
+    // 1. Obtenemos la posición actual exacta del jugador en el mapa
+    final currentPosition = ref.read(playerMovementProvider);
+
+    try {
+      // 2. Invocamos al notifier para actualizar la BD local de SQLite en segundo plano
+      await ref.read(activeGameSessionProvider.notifier).saveCurrentPosition(
+            currentPosition.latitude,
+            currentPosition.longitude,
+          );
+
+      // Esto borra la caché de la RAM y fuerza a que la próxima vez que entres 
+      // a "Cargar Partida", se lean los datos recién guardados de la BD.
+      ref.invalidate(allGameSessionsProvider);
+
+      // Verificación de seguridad si el widget fue destruido del árbol de UI durante la espera
+      if (!context.mounted) return;
+
+      // 3. Mostramos feedback positivo al usuario mediante un SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 10),
+              Text('¡Partida guardada exitosamente!'),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      // Plan de contingencia si la base de datos devuelve un error (ej. disco lleno o bloqueo)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al guardar la partida: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   Future<void> _confirmExit(BuildContext context) async {
