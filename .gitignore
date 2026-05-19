@@ -41,6 +41,8 @@ unlinked_spec.ds
 /packages/flutter/coverage/
 version
 analysis_benchmark.json
+# Forzar ignorar el archivo de bloqueo de versiones
+pubspec.lock
 
 # ==========================================
 # APKs y builds Android

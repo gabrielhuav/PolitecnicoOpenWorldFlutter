@@ -10,9 +10,8 @@ import '../widgets/menu_button.dart';
 import 'game_settings_screen.dart';
 import 'start_menu_screen.dart';
 
-/// Menú de pausa accesible desde el mapa. Se navega con push (no
-/// pushReplacement) para que el WorldMapScreen siga vivo en el stack
-/// y "Continuar" sea un simple Navigator.pop.
+/// Menú de pausa accesible desde el mapa. Permite continuar, guardar, configurar o salir al menú principal.
+/// Se adapta de forma responsiva a pantallas verticales y horizontales para que todo quepa sin hacer scroll.
 class GameMenuScreen extends ConsumerWidget {
   const GameMenuScreen({super.key});
 
@@ -34,64 +33,17 @@ class GameMenuScreen extends ConsumerWidget {
             children: [
               _buildTopBar(context, theme),
               Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.pause_circle_outline,
-                          size: 90,
-                          color: theme.textSecondary,
-                        ),
-                        const SizedBox(height: 15),
-                        Text(
-                          'Menú de Pausa',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: theme.textPrimary,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                        MenuButton(
-                          title: 'Continuar',
-                          icon: Icons.play_arrow_rounded,
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const SizedBox(height: 15),
-                        MenuButton(
-                          title: 'Guardar partida',
-                          icon: Icons.save_outlined,
-                          isSecondary: true,
-                          onPressed: () => _handleSaveGame(context, ref),
-                        ),
-                        const SizedBox(height: 15),
-                        MenuButton(
-                          title: 'Configuración',
-                          icon: Icons.settings_outlined,
-                          isSecondary: true,
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const GameSettingsScreen(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 15),
-                        MenuButton(
-                          title: 'Salir al menú principal',
-                          icon: Icons.exit_to_app,
-                          isSecondary: true,
-                          onPressed: () => _confirmExit(context),
-                        ),
-                      ],
-                    ),
-                  ),
+                // LayoutBuilder exposes constraints dynamically to determine device orientation
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isLandscape = constraints.maxWidth > constraints.maxHeight;
+
+                    if (isLandscape) {
+                      return _buildLandscapeLayout(context, ref, theme);
+                    } else {
+                      return _buildPortraitLayout(context, ref, theme);
+                    }
+                  },
                 ),
               ),
             ],
@@ -103,13 +55,161 @@ class GameMenuScreen extends ConsumerWidget {
 
   Widget _buildTopBar(BuildContext context, AppTheme theme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(8, 0, 16, 0),
       child: Row(
         children: [
           IconButton(
             icon: Icon(Icons.close, color: theme.textPrimary, size: 28),
             tooltip: 'Continuar',
             onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Vertical layout view layout (Portrait)
+  Widget _buildPortraitLayout(BuildContext context, WidgetRef ref, AppTheme theme) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.pause_circle_outline,
+              size: 90,
+              color: theme.textSecondary,
+            ),
+            const SizedBox(height: 15),
+            Text(
+              'Menú de Pausa',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: theme.textPrimary,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 40),
+            MenuButton(
+              title: 'Continuar',
+              icon: Icons.play_arrow_rounded,
+              onPressed: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 15),
+            MenuButton(
+              title: 'Guardar partida',
+              icon: Icons.save_outlined,
+              isSecondary: true,
+              onPressed: () => _handleSaveGame(context, ref),
+            ),
+            const SizedBox(height: 15),
+            MenuButton(
+              title: 'Configuración',
+              icon: Icons.settings_outlined,
+              isSecondary: true,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const GameSettingsScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            MenuButton(
+              title: 'Salir al menú principal',
+              icon: Icons.exit_to_app,
+              isSecondary: true,
+              onPressed: () => _confirmExit(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Horizontal layout view layout (Landscape)
+  /// Splits your screen cleanly into two halves: Header info on the left, buttons grid on the right.
+  Widget _buildLandscapeLayout(BuildContext context, WidgetRef ref, AppTheme theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Left Side: Header Branding & Icon Status
+          Expanded(
+            flex: 4,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.pause_circle_outline,
+                  size: 75,
+                  color: theme.textSecondary,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Menú de Pausa',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: theme.textPrimary,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(width: 40),
+          
+          // Right Side: 2x2 Clean Grid of interactive controls without forcing a scroll down
+          Expanded(
+            flex: 6,
+            child: Center(
+              child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(), // Evita scroll innecesario ya que todo cabe
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MenuButton(
+                      title: 'Continuar',
+                      icon: Icons.play_arrow_rounded,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(height: 12),
+                    MenuButton(
+                      title: 'Guardar partida',
+                      icon: Icons.save_outlined,
+                      isSecondary: true,
+                      onPressed: () => _handleSaveGame(context, ref),
+                    ),
+                    const SizedBox(height: 12),
+                    MenuButton(
+                      title: 'Configuración',
+                      icon: Icons.settings_outlined,
+                      isSecondary: true,
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const GameSettingsScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    MenuButton(
+                      title: 'Salir al menú principal',
+                      icon: Icons.exit_to_app,
+                      isSecondary: true,
+                      onPressed: () => _confirmExit(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),

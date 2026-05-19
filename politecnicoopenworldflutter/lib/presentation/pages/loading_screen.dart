@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/theme/app_theme.dart';       
+import '../../core/theme/theme_extensions.dart'; 
 import '../../core/utils/app_logger.dart';
 import '../../core/utils/location_providers.dart';
 import '../../core/utils/providers.dart';
@@ -12,10 +14,18 @@ import '../../services/location/location_permission_status.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
 import 'character_selection_screen.dart';
+import 'start_menu_screen.dart';
 import 'world_map_screen.dart';
 
 class LoadingScreen extends ConsumerStatefulWidget {
-  const LoadingScreen({Key? key}) : super(key: key);
+  final bool isResuming;
+  final String? resumeSessionId;
+
+  const LoadingScreen({
+    Key? key,
+    this.isResuming = false,
+    this.resumeSessionId,
+  }) : super(key: key);
 
   @override
   ConsumerState<LoadingScreen> createState() => _LoadingScreenState();
@@ -74,44 +84,50 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
     super.dispose();
   }
 
-  /// Pipeline completo de arranque de partida:
-  /// 1. Descarga datos del mapa.
-  /// 2. Pide permiso de ubicación.
-  /// 3. Obtiene posición real (o cae a ESCOM).
-  /// 4. Coloca al jugador en esa posición.
-  /// 5. Crea una partida nueva en BD.
-  /// 6. Navega a WorldMapScreen.
   Future<void> _bootstrap() async {
-    AppLogger.log.d('LoadingScreen: bootstrap iniciado');
+    AppLogger.log.d('LoadingScreen: bootstrap iniciado (isResuming: ${widget.isResuming})');
     if (_loadStarted) return;
     _loadStarted = true;
 
     try {
-      // Paso 1: datos del mapa.
       _setStatus('Descargando calles del campus...');
       await ref.read(mapStateProvider).loadInitialMapData();
 
-      // Paso 2 y 3: ubicación real.
-      _setStatus('Solicitando permiso de ubicación...');
-      final spawn = await _resolveSpawnLocation();
+      LatLng targetCoords = _escomFallback; 
 
-      // Paso 4: coloca al jugador.
-      ref.read(playerMovementProvider.notifier).teleport(spawn);
-      AppLogger.log.i('Jugador colocado en: ${spawn.latitude}, '
-          '${spawn.longitude}');
+      if (widget.isResuming) {
+        _setStatus('Recuperando partida guardada...');
+        final sessionId = widget.resumeSessionId;
+        if (sessionId == null) {
+          throw Exception('ID de sesión inválido para reanudar.');
+        }
 
-      // Paso 5: crea la partida.
-      _setStatus('Guardando partida...');
-      final character = ref.read(selectedCharacterProvider);
-      await ref.read(activeGameSessionProvider.notifier).startNewSession(
-            characterId: character.id,
-            characterName: character.name,
-            spawnLat: spawn.latitude,
-            spawnLon: spawn.longitude,
-          );
+        final session = await ref.read(activeGameSessionProvider.notifier).resume(sessionId);
+        if (session == null) {
+          throw Exception('No se encontró el registro de la partida guardada.');
+        }
+
+        targetCoords = LatLng(session.lastLat, session.lastLon);
+      } else {
+        _setStatus('Solicitando permiso de ubicación...');
+        final spawn = await _resolveSpawnLocation();
+        targetCoords = spawn;
+
+        _setStatus('Guardando nueva partida...');
+        final character = ref.read(selectedCharacterProvider);
+        await ref.read(activeGameSessionProvider.notifier).startNewSession(
+              characterId: character.id,
+              characterName: character.name,
+              spawnLat: spawn.latitude,
+              spawnLon: spawn.longitude,
+            );
+      }
+
+      ref.read(playerMovementProvider.notifier).teleport(targetCoords);
+      AppLogger.log.i('Jugador colocado en: ${targetCoords.latitude}, ${targetCoords.longitude}');
 
       if (!mounted) return;
-      _setStatus('¡Listo para jugar!');
+      _setStatus('Listo para jugar!');
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) return;
@@ -130,8 +146,6 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
     }
   }
 
-  /// Solicita permiso de ubicación y devuelve la posición real del
-  /// dispositivo, o el fallback de ESCOM si no se concede o falla el GPS.
   Future<LatLng> _resolveSpawnLocation() async {
     final permissionService = ref.read(locationPermissionServiceProvider);
     final locationService = ref.read(locationServiceProvider);
@@ -142,20 +156,10 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
         _setStatus('Obteniendo tu ubicación...');
         final pos = await locationService.getCurrent();
         if (pos != null) return pos;
-        AppLogger.log.w('Permiso concedido pero getCurrent() devolvió null. '
-            'Usando fallback ESCOM.');
         return _escomFallback;
-
       case LocationPermissionStatus.denied:
-        AppLogger.log.w('Permiso denegado por el usuario. Usando fallback.');
-        return _escomFallback;
-
       case LocationPermissionStatus.deniedForever:
-        AppLogger.log.w('Permiso denegado permanentemente. Usando fallback.');
-        return _escomFallback;
-
       case LocationPermissionStatus.serviceDisabled:
-        AppLogger.log.w('Servicio de ubicación apagado. Usando fallback.');
         return _escomFallback;
     }
   }
@@ -167,17 +171,15 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.appTheme;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0B1220),
-              Color(0xFF152234),
-              Color(0xFF1F3A5F),
-            ],
+            colors: theme.backgroundGradient,
           ),
         ),
         child: SafeArea(
@@ -186,19 +188,19 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
             child: Column(
               children: [
                 const Spacer(flex: 2),
-                const Icon(
+                Icon(
                   Icons.map_outlined,
                   size: 72,
-                  color: Colors.white70,
+                  color: theme.textPrimary.withOpacity(0.7),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Politécnico Open World',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: theme.textPrimary, 
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -211,16 +213,16 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                       height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.tealAccent.withValues(alpha: 0.12),
+                        color: theme.accentSecondary.withOpacity(0.12),
                         border: Border.all(
-                          color: Colors.tealAccent.shade400,
+                          color: theme.accentSecondary,
                           width: 2,
                         ),
                       ),
-                      child: const Padding(
-                        padding: EdgeInsets.all(18.0),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18.0),
                         child: CircularProgressIndicator(
-                          color: Colors.tealAccent,
+                          color: theme.accentSecondary, 
                           strokeWidth: 3,
                         ),
                       ),
@@ -229,21 +231,19 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                   const SizedBox(height: 20),
                   Text(
                     _statusText,
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: theme.textSecondary, 
                       fontSize: 14,
                       letterSpacing: 0.5,
                     ),
                   ),
                 ] else ...[
-                  const Icon(Icons.error_outline,
-                      color: Colors.redAccent, size: 56),
+                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 56),
                   const SizedBox(height: 12),
                   Text(
                     _errorMessage,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        color: Colors.redAccent, fontSize: 13),
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 13),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -253,20 +253,22 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const CharacterSelectionScreen(),
+                          builder: (_) => widget.isResuming 
+                              ? const StartMenuScreen() 
+                              : const CharacterSelectionScreen(),
                         ),
                       );
                     },
                     icon: const Icon(Icons.arrow_back),
                     label: const Text('Regresar'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white12,
-                      foregroundColor: Colors.white,
+                      backgroundColor: theme.surfaceOverlay, 
+                      foregroundColor: theme.textPrimary,     
                     ),
                   ),
                 ],
                 const Spacer(flex: 2),
-                _TipCard(tip: _tips[_tipIndex]),
+                _TipCard(tip: _tips[_tipIndex], theme: theme),
                 const Spacer(flex: 1),
               ],
             ),
@@ -279,8 +281,12 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
 
 class _TipCard extends StatelessWidget {
   final String tip;
+  final AppTheme theme; 
 
-  const _TipCard({required this.tip});
+  const _TipCard({
+    required this.tip,
+    required this.theme,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -288,27 +294,30 @@ class _TipCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: theme.surfaceOverlay, 
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.tealAccent.withValues(alpha: 0.25),
+          color: theme.borderAccent.withOpacity(0.4), 
           width: 1,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.lightbulb_outline,
-              color: Colors.tealAccent, size: 20),
+          Icon(
+            Icons.lightbulb_outline,
+            color: theme.accentSecondary, 
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'CONSEJO',
                   style: TextStyle(
-                    color: Colors.tealAccent,
+                    color: theme.accentSecondary, 
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -317,8 +326,8 @@ class _TipCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   tip,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: theme.textSecondary, 
                     fontSize: 13,
                     height: 1.4,
                   ),

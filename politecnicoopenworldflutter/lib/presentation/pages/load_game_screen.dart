@@ -9,6 +9,7 @@ import '../../domain/entities/game_session.dart';
 import '../state/player_movement_notifier.dart';
 import '../widgets/session_list_tile.dart';
 import 'world_map_screen.dart';
+import 'loading_screen.dart';
 
 /// Pantalla "Cargar Partida". Muestra todas las partidas guardadas y
 /// permite reanudarlas o eliminarlas.
@@ -146,17 +147,18 @@ class LoadGameScreen extends ConsumerWidget {
     GameSession session,
   ) async {
     final navigator = Navigator.of(context);
-    final notifier = ref.read(activeGameSessionProvider.notifier);
-    await notifier.resume(session.id);
 
-    ref
-        .read(playerMovementProvider.notifier)
-        .teleport(LatLng(session.lastLat, session.lastLon));
 
-    if (!context.mounted) return;
-
+    // Removemos la carga de la BD y la teletransportación de este método.
+    // Ahora, en el instante en que tocas la partida, la app reemplaza de inmediato 
+    // esta pantalla por la de carga ('LoadingScreen'), pasándole el ID y la bandera de reanudación.
     navigator.pushReplacement(
-      MaterialPageRoute(builder: (_) => const WorldMapScreen()),
+      MaterialPageRoute(
+        builder: (_) => LoadingScreen(
+          isResuming: true,
+          resumeSessionId: session.id,
+        ),
+      ),
     );
   }
 
