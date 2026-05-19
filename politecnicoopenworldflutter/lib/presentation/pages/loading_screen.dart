@@ -2,10 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../../core/utils/app_logger.dart';
+import '../../core/utils/location_providers.dart';
 import '../../core/utils/providers.dart';
+import '../../core/utils/session_providers.dart';
+import '../../services/location/location_permission_status.dart';
+import '../state/character_provider.dart';
+import '../state/player_movement_notifier.dart';
 import 'character_selection_screen.dart';
 import 'world_map_screen.dart';
-import '../../core/utils/app_logger.dart';
 
 class LoadingScreen extends ConsumerStatefulWidget {
   const LoadingScreen({Key? key}) : super(key: key);
@@ -26,12 +33,15 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
     'Próximamente podrás personalizar tu propio personaje.',
   ];
 
+  // Fallback usado cuando el GPS no está disponible.
+  static const LatLng _escomFallback = LatLng(19.5045, -99.1465);
+
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
   Timer? _tipTimer;
 
   bool _loadStarted = false;
-  String _statusText = 'Inicializando el mundo…';
+  String _statusText = 'Inicializando el mundo...';
   bool _hasError = false;
   String _errorMessage = '';
   int _tipIndex = 0;
@@ -40,7 +50,6 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
   void initState() {
     super.initState();
 
-    // Animación de pulso para el indicador
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -55,8 +64,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
       setState(() => _tipIndex = (_tipIndex + 1) % _tips.length);
     });
 
-    // Arranca la carga en el siguiente frame para que la UI ya esté montada
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMap());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
   @override
@@ -66,35 +74,95 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
     super.dispose();
   }
 
-  Future<void> _loadMap() async {
-    AppLogger.log.d('Iniciando carga del mapa...');
-
+  /// Pipeline completo de arranque de partida:
+  /// 1. Descarga datos del mapa.
+  /// 2. Pide permiso de ubicación.
+  /// 3. Obtiene posición real (o cae a ESCOM).
+  /// 4. Coloca al jugador en esa posición.
+  /// 5. Crea una partida nueva en BD.
+  /// 6. Navega a WorldMapScreen.
+  Future<void> _bootstrap() async {
+    AppLogger.log.d('LoadingScreen: bootstrap iniciado');
     if (_loadStarted) return;
     _loadStarted = true;
 
     try {
-      setState(() => _statusText = 'Descargando calles del campus…');
+      // Paso 1: datos del mapa.
+      _setStatus('Descargando calles del campus...');
       await ref.read(mapStateProvider).loadInitialMapData();
 
-      if (!mounted) return;
-      setState(() => _statusText = '¡Listo para jugar!');
+      // Paso 2 y 3: ubicación real.
+      _setStatus('Solicitando permiso de ubicación...');
+      final spawn = await _resolveSpawnLocation();
 
-      // Pequeña pausa para que el usuario vea el mensaje de éxito
-      await Future.delayed(const Duration(milliseconds: 600));
+      // Paso 4: coloca al jugador.
+      ref.read(playerMovementProvider.notifier).teleport(spawn);
+      AppLogger.log.i('Jugador colocado en: ${spawn.latitude}, '
+          '${spawn.longitude}');
+
+      // Paso 5: crea la partida.
+      _setStatus('Guardando partida...');
+      final character = ref.read(selectedCharacterProvider);
+      await ref.read(activeGameSessionProvider.notifier).startNewSession(
+            characterId: character.id,
+            characterName: character.name,
+            spawnLat: spawn.latitude,
+            spawnLon: spawn.longitude,
+          );
+
+      if (!mounted) return;
+      _setStatus('¡Listo para jugar!');
+      await Future.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const WorldMapScreen()),
       );
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.log.e('LoadingScreen bootstrap falló', error: e, stackTrace: stack);
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage = 'Error al cargar el mapa: $e';
-        _statusText = 'Error al cargar el mapa';
+        _errorMessage = 'Error al iniciar la partida: $e';
+        _statusText = 'Error al iniciar';
       });
     }
+  }
+
+  /// Solicita permiso de ubicación y devuelve la posición real del
+  /// dispositivo, o el fallback de ESCOM si no se concede o falla el GPS.
+  Future<LatLng> _resolveSpawnLocation() async {
+    final permissionService = ref.read(locationPermissionServiceProvider);
+    final locationService = ref.read(locationServiceProvider);
+
+    final status = await permissionService.request();
+    switch (status) {
+      case LocationPermissionStatus.granted:
+        _setStatus('Obteniendo tu ubicación...');
+        final pos = await locationService.getCurrent();
+        if (pos != null) return pos;
+        AppLogger.log.w('Permiso concedido pero getCurrent() devolvió null. '
+            'Usando fallback ESCOM.');
+        return _escomFallback;
+
+      case LocationPermissionStatus.denied:
+        AppLogger.log.w('Permiso denegado por el usuario. Usando fallback.');
+        return _escomFallback;
+
+      case LocationPermissionStatus.deniedForever:
+        AppLogger.log.w('Permiso denegado permanentemente. Usando fallback.');
+        return _escomFallback;
+
+      case LocationPermissionStatus.serviceDisabled:
+        AppLogger.log.w('Servicio de ubicación apagado. Usando fallback.');
+        return _escomFallback;
+    }
+  }
+
+  void _setStatus(String text) {
+    if (!mounted) return;
+    setState(() => _statusText = text);
   }
 
   @override
@@ -118,8 +186,6 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
             child: Column(
               children: [
                 const Spacer(flex: 2),
-
-                // ── Logo ────────────────────────────────────────────
                 const Icon(
                   Icons.map_outlined,
                   size: 72,
@@ -136,10 +202,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                     letterSpacing: 1.5,
                   ),
                 ),
-
                 const Spacer(flex: 2),
-
-                // ── Indicador de carga o error ───────────────────────
                 if (!_hasError) ...[
                   ScaleTransition(
                     scale: _pulseAnimation,
@@ -148,7 +211,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                       height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.tealAccent.withOpacity(0.12),
+                        color: Colors.tealAccent.withValues(alpha: 0.12),
                         border: Border.all(
                           color: Colors.tealAccent.shade400,
                           width: 2,
@@ -179,8 +242,8 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                   Text(
                     _errorMessage,
                     textAlign: TextAlign.center,
-                    style:
-                        const TextStyle(color: Colors.redAccent, fontSize: 13),
+                    style: const TextStyle(
+                        color: Colors.redAccent, fontSize: 13),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -202,12 +265,8 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                     ),
                   ),
                 ],
-
                 const Spacer(flex: 2),
-
-                // ── Consejo ─────────────────────────────────────────
                 _TipCard(tip: _tips[_tipIndex]),
-
                 const Spacer(flex: 1),
               ],
             ),
@@ -218,7 +277,6 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
   }
 }
 
-// ── Widget del consejo ────────────────────────────────────────────────
 class _TipCard extends StatelessWidget {
   final String tip;
 
@@ -230,10 +288,10 @@ class _TipCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.tealAccent.withOpacity(0.25),
+          color: Colors.tealAccent.withValues(alpha: 0.25),
           width: 1,
         ),
       ),

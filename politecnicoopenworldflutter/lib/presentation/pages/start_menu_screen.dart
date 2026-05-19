@@ -6,6 +6,7 @@ import 'app_settings_screen.dart';
 import 'character_selection_screen.dart';
 import 'debug_log_screen.dart';
 import 'game_settings_screen.dart';
+import 'load_game_screen.dart';
 import '../widgets/menu_button.dart';
 
 class StartMenuScreen extends StatelessWidget {
@@ -176,6 +177,14 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
     });
   }
 
+  void _goToLoadGame() {
+    if (_isNavigating) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoadGameScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -194,12 +203,7 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
           isSecondary: true,
           onPressed: _isNavigating
               ? null
-              : () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Buscando partidas guardadas...')),
-                  );
-                },
+              : _goToLoadGame,
         ),
         const SizedBox(height: 15),
         MenuButton(
@@ -229,7 +233,8 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
                 : () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const DebugLogScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const DebugLogScreen()),
                     );
                   },
           ),
