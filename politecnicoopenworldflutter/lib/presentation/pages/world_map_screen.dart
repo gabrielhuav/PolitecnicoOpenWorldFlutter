@@ -96,7 +96,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             top: 50,
             left: 20,
             child: FloatingActionButton(
-              heroTag: 'fab_menu',
               mini: true,
               backgroundColor: Colors.white,
                 foregroundColor: Colors.black87,
