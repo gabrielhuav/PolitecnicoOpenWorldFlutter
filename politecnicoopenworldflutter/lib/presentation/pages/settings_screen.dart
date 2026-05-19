@@ -137,24 +137,15 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const Text('Estilo de Movimiento', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _ToggleButton(
-                  text: ControlType.dpad.displayName,
-                  isSelected: state.controlType == ControlType.dpad,
-                  onTap: () => notifier.changeControlType(ControlType.dpad),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ToggleButton(
-                  text: ControlType.joystick.displayName,
-                  isSelected: state.controlType == ControlType.joystick,
-                  onTap: () => notifier.changeControlType(ControlType.joystick),
-                ),
-              ),
-            ],
+          _ToggleButton(
+            text: ControlType.dpad.displayName,
+            isSelected: state.controlType == ControlType.dpad,
+            onTap: () => notifier.changeControlType(ControlType.dpad),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'El joystick virtual no está disponible actualmente.',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 32),
           Text('Tamaño en Pantalla: ${(safeScale * 100).toInt()}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
