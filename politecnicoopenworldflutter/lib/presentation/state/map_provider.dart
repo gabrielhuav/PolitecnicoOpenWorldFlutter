@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/app_logger.dart';
 // Importamos tus entidades del dominio
 import '../../domain/entities/map_node.dart';
 import '../../domain/entities/map_way.dart';
@@ -35,6 +36,7 @@ class MapProvider extends ChangeNotifier {
   /// Descarga o lee los datos iniciales del mapa.
   /// Esta es la función que se llama desde el StartMenuScreen.
   Future<void> loadInitialMapData() async {
+    AppLogger.log.i('loadInitialMapData: Iniciando carga de datos del mapa');
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -49,8 +51,11 @@ class MapProvider extends ChangeNotifier {
 
       _ways = ways;
       _nodes = ways.expand((w) => w.nodes).toList();
-    } catch (e) {
+      AppLogger.log
+          .i('Mapa cargado: ${_ways.length} calles y ${_nodes.length} nodos');
+    } catch (e, stack) {
       _errorMessage = 'Fallo crítico al inicializar el mundo: $e';
+      AppLogger.log.e('loadInitialMapData falló', error: e, stackTrace: stack);
       rethrow;
     } finally {
       _isLoading = false;

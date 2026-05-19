@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:politecnicoopenworldflutter/core/utils/app_logger.dart';
 import '../../../domain/entities/map_node.dart';
 import '../../../domain/entities/map_way.dart';
 
@@ -43,7 +44,12 @@ class OverpassClient {
       throw Exception(
         'Respuesta de Overpass no válida: ${responseData.runtimeType}',
       );
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.log.e(
+        'OverpassClient.fetchRoads falló',
+        error: e,
+        stackTrace: stack,
+      );
       throw Exception('Error descargando calles: $e');
     }
   }

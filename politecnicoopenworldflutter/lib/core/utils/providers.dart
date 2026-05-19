@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/datasources/local/app_database.dart';
 import '../../data/datasources/remote/overpass_client.dart';
 import '../../data/repositories/map_repository_impl.dart';
+import '../../data/repositories/settings_repository.dart';
 
 // Importamos la lógica de estado
 import '../../presentation/state/map_provider.dart';
@@ -13,6 +14,9 @@ import '../../presentation/state/map_provider.dart';
 // ==========================================
 final localDbProvider = Provider((ref) => AppDatabase());
 final remoteClientProvider = Provider((ref) => OverpassClient());
+final settingsRepositoryProvider = Provider<SettingsRepository>(
+  (ref) => throw UnimplementedError('SettingsRepository no inicializado'),
+);
 
 // ==========================================
 // 2. REPOSITORIOS
