@@ -3,14 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
-import '../../core/utils/session_providers.dart'; 
-import '../state/player_movement_notifier.dart';  
+import '../../core/utils/session_providers.dart';
+import '../state/player_movement_notifier.dart';
 import '../widgets/menu_button.dart';
 import 'game_settings_screen.dart';
 import 'start_menu_screen.dart';
 
-/// Menú de pausa accesible desde el mapa. Permite continuar, guardar, configurar o salir al menú principal.
-/// Se adapta de forma responsiva a pantallas verticales y horizontales para que todo quepa sin hacer scroll.
+/// Menú de pausa accesible desde el mapa. Se renderiza como una capa
+/// translúcida sobre el [WorldMapScreen] (estilo Minecraft): el mapa y el
+/// marcador del jugador permanecen visibles detrás de un velo oscuro.
+/// Permite continuar, guardar, configurar o salir al menú principal.
+/// Se adapta de forma responsiva a pantallas verticales y horizontales para
+/// que todo quepa sin hacer scroll.
 class GameMenuScreen extends ConsumerWidget {
   const GameMenuScreen({super.key});
 
@@ -19,14 +23,10 @@ class GameMenuScreen extends ConsumerWidget {
     final theme = ref.appTheme;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: theme.backgroundGradient,
-          ),
-        ),
+        // Velo oscuro semitransparente que deja ver el mapa de fondo.
+        color: Colors.black.withValues(alpha: 0.55),
         child: SafeArea(
           child: Column(
             children: [
@@ -35,7 +35,8 @@ class GameMenuScreen extends ConsumerWidget {
                 // LayoutBuilder exposes constraints dynamically to determine device orientation
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final isLandscape = constraints.maxWidth > constraints.maxHeight;
+                    final isLandscape =
+                        constraints.maxWidth > constraints.maxHeight;
 
                     if (isLandscape) {
                       return _buildLandscapeLayout(context, ref, theme);
@@ -68,7 +69,8 @@ class GameMenuScreen extends ConsumerWidget {
   }
 
   /// Vertical layout view layout (Portrait)
-  Widget _buildPortraitLayout(BuildContext context, WidgetRef ref, AppTheme theme) {
+  Widget _buildPortraitLayout(
+      BuildContext context, WidgetRef ref, AppTheme theme) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
@@ -131,7 +133,8 @@ class GameMenuScreen extends ConsumerWidget {
 
   /// Horizontal layout view layout (Landscape)
   /// Splits your screen cleanly into two halves: Header info on the left, buttons grid on the right.
-  Widget _buildLandscapeLayout(BuildContext context, WidgetRef ref, AppTheme theme) {
+  Widget _buildLandscapeLayout(
+      BuildContext context, WidgetRef ref, AppTheme theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
       child: Row(
@@ -162,15 +165,16 @@ class GameMenuScreen extends ConsumerWidget {
               ],
             ),
           ),
-          
+
           const SizedBox(width: 40),
-          
+
           // Right Side: 2x2 Clean Grid of interactive controls without forcing a scroll down
           Expanded(
             flex: 6,
             child: Center(
               child: SingleChildScrollView(
-                physics: const NeverScrollableScrollPhysics(), // Evita scroll innecesario ya que todo cabe
+                physics:
+                    const NeverScrollableScrollPhysics(), // Evita scroll innecesario ya que todo cabe
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -215,9 +219,8 @@ class GameMenuScreen extends ConsumerWidget {
     );
   }
 
- /// Gestiona el guardado asíncrono leyendo la posición actual y enviándola a Drift
+  /// Gestiona el guardado asíncrono leyendo la posición actual y enviándola a Drift
   Future<void> _handleSaveGame(BuildContext context, WidgetRef ref) async {
-    
     /// Verificación de seguridad recomendada por Copilot
     final currentSession = ref.read(activeGameSessionProvider).value;
     if (currentSession == null) {
@@ -229,7 +232,7 @@ class GameMenuScreen extends ConsumerWidget {
       );
       return; // Salimos temprano para no mostrar éxito falso
     }
-    
+
     // 1. Obtenemos la posición actual exacta del jugador en el mapa
     final currentPosition = ref.read(playerMovementProvider);
 
@@ -240,7 +243,7 @@ class GameMenuScreen extends ConsumerWidget {
             currentPosition.longitude,
           );
 
-      // Esto borra la caché de la RAM y fuerza a que la próxima vez que entres 
+      // Esto borra la caché de la RAM y fuerza a que la próxima vez que entres
       // a "Cargar Partida", se lean los datos recién guardados de la BD.
       ref.invalidate(allGameSessionsProvider);
 
@@ -290,8 +293,7 @@ class GameMenuScreen extends ConsumerWidget {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Salir'),
           ),
@@ -303,7 +305,9 @@ class GameMenuScreen extends ConsumerWidget {
     ref.read(activeGameSessionProvider.notifier).clear();
     if (!context.mounted) return;
 
-    await ref.read(activeGameSessionProvider.notifier).deactivateActiveSession();
+    await ref
+        .read(activeGameSessionProvider.notifier)
+        .deactivateActiveSession();
     ref.invalidate(allGameSessionsProvider);
     if (!context.mounted) return;
 

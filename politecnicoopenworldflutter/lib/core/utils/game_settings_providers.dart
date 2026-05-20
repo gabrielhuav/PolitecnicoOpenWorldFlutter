@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'map_tile_provider.dart';
 
 // ── Enum de tipo de control ──────────────────────────────────────────
 enum ControlType {

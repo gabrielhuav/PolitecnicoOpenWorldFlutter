@@ -9,7 +9,7 @@ import '../../core/utils/map_tile_provider.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
 import '../widgets/game_controls.dart';
-import 'start_menu_screen.dart';
+
 import 'game_menu_screen.dart';
 
 class WorldMapScreen extends ConsumerStatefulWidget {
@@ -33,6 +33,24 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   void dispose() {
     _mapController.dispose();
     super.dispose();
+  }
+
+  /// Abre el menú de pausa como una ruta translúcida (opaque: false) para
+  /// que el mapa y el marcador del jugador sigan visibles detrás del
+  /// overlay, al estilo Minecraft.
+  void _openPauseMenu() {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: false,
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 150),
+        pageBuilder: (_, __, ___) => const GameMenuScreen(),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   @override
@@ -94,14 +112,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
               mini: true,
               backgroundColor: theme.surfacePrimary,
               foregroundColor: theme.textPrimary,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const GameMenuScreen(),
-                  ),
-                );
-              },
+              onPressed: _openPauseMenu,
               child: const Icon(Icons.menu),
             ),
           ),
