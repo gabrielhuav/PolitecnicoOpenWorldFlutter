@@ -1,19 +1,22 @@
 import 'package:equatable/equatable.dart';
+import 'package:uuid/uuid.dart';
+
 import 'geo_location.dart';
 import 'map_way.dart';
 import 'npc_enums.dart';
-import 'package:uuid/uuid.dart';
 
-// ignore: must_be_immutable
+/// NPC inmutable. Cada paso de simulación produce un nuevo [Npc] vía
+/// [copyWith]. La igualdad se basa sólo en [id] para mantener identidad
+/// estable entre frames aunque los demás campos cambien.
 class Npc extends Equatable {
   final String id;
   final NpcType type;
-  GeoLocation location;
-  double rotationAngle;
+  final GeoLocation location;
+  final double rotationAngle;
   final double speed;
   final MapWay? currentWay;
-  int targetNodeIndex;
-  int moveDirection;
+  final int targetNodeIndex;
+  final int moveDirection;
   final int carColor;
   final CarModel carModel;
 
@@ -29,6 +32,27 @@ class Npc extends Equatable {
     this.carColor = 0xFFFFFFFF,
     this.carModel = CarModel.sedan,
   }) : id = id ?? const Uuid().v4();
+
+  Npc copyWith({
+    GeoLocation? location,
+    double? rotationAngle,
+    MapWay? currentWay,
+    int? targetNodeIndex,
+    int? moveDirection,
+  }) {
+    return Npc(
+      id: id,
+      type: type,
+      location: location ?? this.location,
+      rotationAngle: rotationAngle ?? this.rotationAngle,
+      speed: speed,
+      currentWay: currentWay ?? this.currentWay,
+      targetNodeIndex: targetNodeIndex ?? this.targetNodeIndex,
+      moveDirection: moveDirection ?? this.moveDirection,
+      carColor: carColor,
+      carModel: carModel,
+    );
+  }
 
   @override
   List<Object?> get props => [id];
