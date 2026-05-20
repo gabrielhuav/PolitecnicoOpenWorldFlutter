@@ -172,10 +172,13 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
 
   void _goToLoadGame() {
     if (_isNavigating) return;
+    setState(() => _isNavigating = true);
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const LoadGameScreen()),
-    );
+    ).then((_) {
+      if (mounted) setState(() => _isNavigating = false);
+    });
   }
 
   @override

@@ -3,8 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/utils/game_settings_providers.dart';
 import '../../core/utils/map_tile_provider.dart';
 
-import '../../core/theme/theme_providers.dart';
-
 import '../../core/theme/app_themes.dart';
 
 class SettingsRepository {

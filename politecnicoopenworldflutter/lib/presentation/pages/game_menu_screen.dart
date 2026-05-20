@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../../core/utils/session_providers.dart'; 
-import '../state/game_session_notifier.dart';     
 import '../state/player_movement_notifier.dart';  
 import '../widgets/menu_button.dart';
 import 'game_settings_screen.dart';
