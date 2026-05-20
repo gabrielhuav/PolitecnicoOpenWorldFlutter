@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../state/player_movement_notifier.dart';
 
 class GameControls extends ConsumerWidget {
@@ -7,6 +8,7 @@ class GameControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.appTheme;
     final movement = ref.read(playerMovementProvider.notifier);
 
     return Align(
@@ -19,7 +21,9 @@ class GameControls extends ConsumerWidget {
             color: Colors.black.withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15), width: 1),
+              color: theme.textPrimary.withValues(alpha: 0.15),
+              width: 1,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -54,23 +58,23 @@ class GameControls extends ConsumerWidget {
   }
 }
 
-class _DPadButton extends StatelessWidget {
+class _DPadButton extends ConsumerWidget {
   final IconData icon;
   final VoidCallback onPressed;
-
   const _DPadButton({required this.icon, required this.onPressed});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.appTheme;
     return Material(
-      color: Colors.white.withValues(alpha: 0.12),
+      color: theme.textPrimary.withValues(alpha: 0.12),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onPressed,
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Icon(icon, size: 32, color: Colors.white),
+          child: Icon(icon, size: 32, color: theme.textPrimary),
         ),
       ),
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_extensions.dart';
 import '../../core/utils/game_settings_providers.dart';
 import '../../core/utils/map_tile_provider.dart';
 import '../../core/utils/providers.dart';
@@ -13,7 +15,6 @@ class GameSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
-  // ── Draft local — se compara con los providers para detectar cambios ─
   late MapTileProvider _mapProvider;
   late ControlType _controlType;
   late bool _invertControls;
@@ -28,7 +29,6 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     _loadFromProviders();
   }
 
-  // ── Lee el estado actual de los providers ────────────────────────────
   void _loadFromProviders() {
     _mapProvider = ref.read(mapTileProviderProvider);
     _controlType = ref.read(controlTypeProvider);
@@ -39,7 +39,6 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     _freeMovement = ref.read(freeMovementProvider);
   }
 
-  // ── Aplica draft a los providers y notifica ──────────────────────────
   Future<void> _save() async {
     final settingsRepository = ref.read(settingsRepositoryProvider);
 
@@ -65,21 +64,18 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Configuración guardada'),
-        backgroundColor: Colors.teal,
         behavior: SnackBarBehavior.floating,
       ),
     );
     setState(() {});
   }
 
-  // ── Restaura el draft desde los providers ────────────────────────────
-  void _reset() {
-    setState(() => _loadFromProviders());
-  }
+  void _reset() => setState(() => _loadFromProviders());
 
-  // ── Build ────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final theme = ref.appTheme;
+
     final savedMapProvider = ref.watch(mapTileProviderProvider);
     final savedControlType = ref.watch(controlTypeProvider);
     final savedInvertControls = ref.watch(invertControlsProvider);
@@ -98,56 +94,58 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0B1220),
-              Color(0xFF152234),
-              Color(0xFF1F3A5F),
-            ],
+            colors: theme.backgroundGradient,
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              _buildTopBar(),
+              _buildTopBar(theme),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
                     _buildSection(
+                      theme: theme,
                       icon: Icons.map_outlined,
                       title: 'Mapa',
-                      children: [_buildMapProviderSelector()],
+                      children: [_buildMapProviderSelector(theme)],
                     ),
                     _buildSection(
+                      theme: theme,
                       icon: Icons.gamepad_outlined,
                       title: 'Controles',
                       children: [
-                        _buildControlTypeSelector(),
-                        _buildDivider(),
+                        _buildControlTypeSelector(theme),
+                        _buildDivider(theme),
                         _buildToggle(
+                          theme: theme,
                           label: 'Invertir controles',
                           value: _invertControls,
                           onChanged: (v) => setState(() => _invertControls = v),
                         ),
-                        _buildDivider(),
-                        _buildSizeSlider(),
+                        _buildDivider(theme),
+                        _buildSizeSlider(theme),
                       ],
                     ),
                     _buildSection(
+                      theme: theme,
                       icon: Icons.tune_outlined,
                       title: 'Interfaz',
                       children: [
                         _buildToggle(
+                          theme: theme,
                           label: 'Mostrar FPS',
                           value: _showFps,
                           onChanged: (v) => setState(() => _showFps = v),
                         ),
-                        _buildDivider(),
+                        _buildDivider(theme),
                         _buildToggle(
+                          theme: theme,
                           label: 'Mostrar Base de Datos',
                           subtitle: 'Muestra estadísticas de la DB local',
                           value: _showDatabase,
@@ -156,10 +154,12 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
                       ],
                     ),
                     _buildSection(
+                      theme: theme,
                       icon: Icons.sports_esports_outlined,
                       title: 'Jugabilidad',
                       children: [
                         _buildToggle(
+                          theme: theme,
                           label: 'Movimiento libre',
                           subtitle:
                               'El jugador puede moverse fuera de las calles',
@@ -171,7 +171,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
                   ],
                 ),
               ),
-               _buildActionBar(hasChanges),
+              _buildActionBar(theme, hasChanges),
             ],
           ),
         ),
@@ -179,22 +179,20 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     );
   }
 
-  // ── Estructura ────────────────────────────────────────────────────────
-
-  Widget _buildTopBar() {
+  Widget _buildTopBar(AppTheme theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+            icon: Icon(Icons.arrow_back, color: theme.textPrimary, size: 28),
             onPressed: () => Navigator.pop(context),
           ),
           const SizedBox(width: 4),
-          const Text(
+          Text(
             'Ajustes del juego',
             style: TextStyle(
-              color: Colors.white,
+              color: theme.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
@@ -206,6 +204,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
   }
 
   Widget _buildSection({
+    required AppTheme theme,
     required IconData icon,
     required String title,
     required List<Widget> children,
@@ -219,12 +218,12 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
             padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Row(
               children: [
-                Icon(icon, color: Colors.tealAccent, size: 18),
+                Icon(icon, color: theme.accentSecondary, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   title.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.tealAccent,
+                  style: TextStyle(
+                    color: theme.accentSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.4,
@@ -235,10 +234,10 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: theme.surfaceOverlay,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: Colors.tealAccent.withOpacity(0.2),
+                color: theme.borderAccent,
                 width: 1,
               ),
             ),
@@ -249,22 +248,22 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     );
   }
 
-  Widget _buildDivider() => Divider(
+  Widget _buildDivider(AppTheme theme) => Divider(
         height: 1,
         thickness: 1,
-        color: Colors.white.withOpacity(0.07),
+        color: theme.borderSubtle,
         indent: 16,
         endIndent: 16,
       );
 
-  Widget _buildActionBar(bool hasChanges) {
+  Widget _buildActionBar(AppTheme theme, bool hasChanges) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1220).withOpacity(0.9),
+        color: theme.surfacePrimary.withValues(alpha: 0.9),
         border: Border(
           top: BorderSide(
-            color: Colors.tealAccent.withOpacity(0.2),
+            color: theme.borderAccent,
             width: 1,
           ),
         ),
@@ -277,17 +276,17 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
               icon: const Icon(Icons.restore, size: 20),
               label: const Text('Restablecer'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white10,
-                foregroundColor: Colors.white,
+                backgroundColor: theme.surfaceOverlay,
+                foregroundColor: theme.textPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: hasChanges ? Colors.white30 : Colors.transparent,
+                    color: hasChanges ? theme.textTertiary : Colors.transparent,
                   ),
                 ),
-                disabledBackgroundColor: Colors.white.withOpacity(0.03),
-                disabledForegroundColor: Colors.white24,
+                disabledBackgroundColor: theme.surfaceOverlay,
+                disabledForegroundColor: theme.textTertiary,
               ),
             ),
           ),
@@ -302,14 +301,15 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.tealAccent.shade700,
-                foregroundColor: Colors.white,
+                backgroundColor: theme.buttonPrimary,
+                foregroundColor: theme.buttonPrimaryText,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                disabledBackgroundColor: Colors.grey.shade800,
-                disabledForegroundColor: Colors.white24,
+                disabledBackgroundColor:
+                    theme.buttonPrimary.withValues(alpha: 0.3),
+                disabledForegroundColor: theme.textTertiary,
               ),
             ),
           ),
@@ -318,90 +318,109 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     );
   }
 
-  // ── Widgets de ajustes ────────────────────────────────────────────────
-
   Widget _buildToggle({
+    required AppTheme theme,
     required String label,
     String? subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
     return SwitchListTile(
-      title: Text(label,
-          style: const TextStyle(color: Colors.white, fontSize: 15)),
+      title:
+          Text(label, style: TextStyle(color: theme.textPrimary, fontSize: 15)),
       subtitle: subtitle != null
           ? Text(subtitle,
-              style:
-                  TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12))
+              style: TextStyle(color: theme.textTertiary, fontSize: 12))
           : null,
       value: value,
       onChanged: onChanged,
-      activeColor: Colors.tealAccent.shade700,
-      inactiveTrackColor: Colors.white12,
+      activeColor: theme.buttonPrimary,
+      inactiveTrackColor: theme.borderSubtle,
     );
   }
 
-  Widget _buildMapProviderSelector() {
+  Widget _buildMapProviderSelector(AppTheme theme) {
+    final Map<MapTileCategory, List<MapTileProvider>> grouped = {};
+    for (final provider in MapTileProvider.values) {
+      grouped.putIfAbsent(provider.category, () => []).add(provider);
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
-        children: MapTileProvider.values.map((provider) {
-          final isSelected = _mapProvider == provider;
-          return GestureDetector(
-            onTap: () => setState(() => _mapProvider = provider),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.tealAccent.withOpacity(0.15)
-                    : Colors.white.withOpacity(0.04),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color:
-                      isSelected ? Colors.tealAccent.shade400 : Colors.white12,
-                  width: isSelected ? 1.5 : 1,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final entry in grouped.entries) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 6, left: 2),
+              child: Text(
+                entry.key.label.toUpperCase(),
+                style: TextStyle(
+                  color: theme.textTertiary,
+                  fontSize: 10,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    isSelected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    color: isSelected
-                        ? Colors.tealAccent.shade400
-                        : Colors.white38,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    provider.label,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 14,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ],
-              ),
             ),
-          );
-        }).toList(),
+            ...entry.value.map((p) => _buildProviderTile(theme, p)),
+            const SizedBox(height: 4),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _buildControlTypeSelector() {
+  Widget _buildProviderTile(AppTheme theme, MapTileProvider provider) {
+    final isSelected = _mapProvider == provider;
+    return GestureDetector(
+      onTap: () => setState(() => _mapProvider = provider),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? theme.accentSoft : theme.surfaceOverlay,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? theme.accentSecondary : theme.borderSubtle,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: isSelected ? theme.accentSecondary : theme.textTertiary,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                provider.label,
+                style: TextStyle(
+                  color: isSelected ? theme.textPrimary : theme.textSecondary,
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlTypeSelector(AppTheme theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text('Tipo de control',
-                style: TextStyle(color: Colors.white, fontSize: 15)),
+                style: TextStyle(color: theme.textPrimary, fontSize: 15)),
           ),
           ToggleButtons(
             isSelected:
@@ -409,11 +428,11 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
             onPressed: (i) =>
                 setState(() => _controlType = ControlType.values[i]),
             borderRadius: BorderRadius.circular(8),
-            selectedColor: Colors.black87,
-            fillColor: Colors.tealAccent.shade700,
-            color: Colors.white60,
-            borderColor: Colors.white12,
-            selectedBorderColor: Colors.tealAccent.shade700,
+            selectedColor: theme.buttonPrimaryText,
+            fillColor: theme.buttonPrimary,
+            color: theme.textSecondary,
+            borderColor: theme.borderSubtle,
+            selectedBorderColor: theme.buttonPrimary,
             constraints: const BoxConstraints(minHeight: 36, minWidth: 90),
             children: ControlType.values
                 .map((t) => Text(t.label, style: const TextStyle(fontSize: 13)))
@@ -424,7 +443,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     );
   }
 
-  Widget _buildSizeSlider() {
+  Widget _buildSizeSlider(AppTheme theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
@@ -433,12 +452,12 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Tamaño de controles',
-                  style: TextStyle(color: Colors.white, fontSize: 15)),
+              Text('Tamaño de controles',
+                  style: TextStyle(color: theme.textPrimary, fontSize: 15)),
               Text(
                 '${(_controlSize * 100).round()}%',
-                style: const TextStyle(
-                  color: Colors.tealAccent,
+                style: TextStyle(
+                  color: theme.accentSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
@@ -447,10 +466,10 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
           ),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: Colors.tealAccent.shade700,
-              inactiveTrackColor: Colors.white12,
-              thumbColor: Colors.tealAccent.shade400,
-              overlayColor: Colors.tealAccent.withOpacity(0.15),
+              activeTrackColor: theme.buttonPrimary,
+              inactiveTrackColor: theme.borderSubtle,
+              thumbColor: theme.accentSecondary,
+              overlayColor: theme.accentSoft,
             ),
             child: Slider(
               value: _controlSize,
