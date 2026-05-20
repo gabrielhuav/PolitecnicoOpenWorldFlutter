@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../../core/utils/session_providers.dart';
 import '../../domain/entities/game_session.dart';
-import '../state/player_movement_notifier.dart';
 import '../widgets/session_list_tile.dart';
-import 'world_map_screen.dart';
 import 'loading_screen.dart';
 
 /// Pantalla "Cargar Partida". Muestra todas las partidas guardadas y
@@ -143,7 +140,6 @@ class LoadGameScreen extends ConsumerWidget {
 
   Future<void> _resume(
     BuildContext context,
-
     GameSession session,
   ) async {
     final navigator = Navigator.of(context);

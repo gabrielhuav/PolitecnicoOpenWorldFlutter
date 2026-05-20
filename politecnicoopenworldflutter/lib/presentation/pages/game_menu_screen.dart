@@ -304,6 +304,10 @@ class GameMenuScreen extends ConsumerWidget {
     ref.read(activeGameSessionProvider.notifier).clear();
     if (!context.mounted) return;
 
+    await ref.read(activeGameSessionProvider.notifier).deactivateActiveSession();
+    ref.invalidate(allGameSessionsProvider);
+    if (!context.mounted) return;
+
     // pushAndRemoveUntil limpia todo el stack: deja solo StartMenuScreen.
     // El WorldMapScreen, sus controles y el estado de movimiento se
     // destruyen cuando sus widgets salen del árbol.

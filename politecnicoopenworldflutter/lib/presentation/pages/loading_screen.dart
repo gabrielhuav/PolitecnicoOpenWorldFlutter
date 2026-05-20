@@ -102,7 +102,8 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
           throw 'ID de sesión inválido para reanudar.';
         }
 
-        final session = await ref.read(activeGameSessionProvider.notifier).resume(sessionId);
+        final session =
+            await ref.read(activeGameSessionProvider.notifier).resume(sessionId);
         if (session == null) {
           throw 'No se encontró el registro de la partida guardada.';
         }
@@ -140,10 +141,19 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage = 'Error al iniciar la partida: $e';
+        _errorMessage = 'Error al iniciar la partida: ${_formatErrorMessage(e)}';
         _statusText = 'Error al iniciar';
       });
     }
+  }
+
+  String _formatErrorMessage(Object error) {
+    final raw = error.toString();
+    const exceptionPrefix = 'Exception: ';
+    if (raw.startsWith(exceptionPrefix)) {
+      return raw.substring(exceptionPrefix.length);
+    }
+    return raw;
   }
 
   Future<LatLng> _resolveSpawnLocation() async {
@@ -191,7 +201,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                 Icon(
                   Icons.map_outlined,
                   size: 72,
-                  color: theme.textPrimary.withOpacity(0.7),
+                  color: theme.textPrimary.withValues(alpha: 0.7),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -213,7 +223,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                       height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: theme.accentSecondary.withOpacity(0.12),
+                        color: theme.accentSecondary.withValues(alpha: 0.12),
                         border: Border.all(
                           color: theme.accentSecondary,
                           width: 2,
@@ -297,7 +307,7 @@ class _TipCard extends StatelessWidget {
         color: theme.surfaceOverlay, 
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: theme.borderAccent.withOpacity(0.4), 
+          color: theme.borderAccent.withValues(alpha: 0.4),
           width: 1,
         ),
       ),

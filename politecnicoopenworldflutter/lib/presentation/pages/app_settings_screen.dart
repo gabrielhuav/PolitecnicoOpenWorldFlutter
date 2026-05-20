@@ -316,21 +316,16 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
                 width: 72,
                 height: 82,
                 decoration: BoxDecoration(
-                  gradient: preview == null
-                      ? null
-                      : LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: preview.backgroundGradient,
-                        ),
-                  color: preview == null ? currentTheme.surfacePrimary : null,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: preview.backgroundGradient,
+                  ),
                 ),
                 child: Center(
                   child: Icon(
                     option.icon,
-                    color: preview == null
-                        ? currentTheme.textPrimary
-                        : preview.textPrimary,
+                    color: preview.textPrimary,
                     size: 28,
                   ),
                 ),
@@ -348,51 +343,36 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
                   // Nombre con la fuente del tema
                   Text(
                     option.label,
-                    style: preview == null
-                        ? TextStyle(
-                            color: currentTheme.textPrimary,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                          )
-                        : GoogleFonts.getFont(
-                            preview.fontFamily,
-                            textStyle: TextStyle(
-                              color: currentTheme.textPrimary,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (preview != null)
-                    Row(
-                      children: [
-                        _Swatch(color: preview.accentPrimary),
-                        const SizedBox(width: 6),
-                        _Swatch(color: preview.accentSecondary),
-                        const SizedBox(width: 6),
-                        _Swatch(color: preview.buttonPrimary),
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Text(
-                            preview.fontFamily,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: currentTheme.textTertiary,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    Text(
-                      'Sigue al sistema',
-                      style: TextStyle(
-                        color: currentTheme.textTertiary,
-                        fontSize: 11,
+                    style: GoogleFonts.getFont(
+                      preview.fontFamily,
+                      textStyle: TextStyle(
+                        color: currentTheme.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _Swatch(color: preview.accentPrimary),
+                      const SizedBox(width: 6),
+                      _Swatch(color: preview.accentSecondary),
+                      const SizedBox(width: 6),
+                      _Swatch(color: preview.buttonPrimary),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          preview.fontFamily,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: currentTheme.textTertiary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
