@@ -8,6 +8,8 @@ import '../../core/theme/theme_extensions.dart';
 import '../../core/utils/map_tile_provider.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
+import '../state/npc_notifier.dart';
+import '../widgets/npc_marker_layer.dart';
 import '../widgets/game_controls.dart';
 
 import 'game_menu_screen.dart';
@@ -24,16 +26,21 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   static const double _initialZoom = 17.5;
 
   @override
-  void initState() {
-    super.initState();
-    _mapController = MapController();
-  }
+void initState() {
+  super.initState();
+  _mapController = MapController();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    ref.read(npcNotifierProvider.notifier).start();
+  });
+}
 
-  @override
-  void dispose() {
-    _mapController.dispose();
-    super.dispose();
-  }
+@override
+void dispose() {
+  ref.read(npcNotifierProvider.notifier).stop();
+  _mapController.dispose();
+  super.dispose();
+}
 
   /// Abre el menú de pausa como una ruta translúcida (opaque: false) para
   /// que el mapa y el marcador del jugador sigan visibles detrás del
@@ -89,6 +96,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
                 maxNativeZoom: tileProvider.maxZoom,
               ),
+              const NpcMarkerLayer(),
               MarkerLayer(
                 markers: [
                   Marker(
