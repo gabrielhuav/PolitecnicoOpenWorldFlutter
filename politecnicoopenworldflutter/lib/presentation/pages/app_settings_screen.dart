@@ -285,9 +285,9 @@ class _AppSettingsScreenState extends ConsumerState<AppSettingsScreen> {
 
   Widget _buildThemeCard(AppTheme currentTheme, ThemeOption option) {
     final isSelected = _themeId == option.id;
-    // Detecta el alias "Sistema" si todavía existe
-    final isSystem = !AppThemes.all.any((t) => t.id == option.id);
-    final preview = isSystem ? null : AppThemes.byId(option.id);
+    // Para el preview, buscamos el tema que corresponde a la opción (si es que
+    // no es "seguir al sistema") y mostramos su gradiente e info de fuente.
+    final preview = AppThemes.byId(option.id);
 
     return GestureDetector(
       onTap: () => setState(() => _themeId = option.id),

@@ -122,7 +122,7 @@ class GameMenuScreen extends ConsumerWidget {
               title: 'Salir al menú principal',
               icon: Icons.exit_to_app,
               isSecondary: true,
-              onPressed: () => _confirmExit(context),
+              onPressed: () => _confirmExit(context, ref),
             ),
           ],
         ),
@@ -204,7 +204,7 @@ class GameMenuScreen extends ConsumerWidget {
                       title: 'Salir al menú principal',
                       icon: Icons.exit_to_app,
                       isSecondary: true,
-                      onPressed: () => _confirmExit(context),
+                      onPressed: () => _confirmExit(context, ref),
                     ),
                   ],
                 ),
@@ -218,6 +218,19 @@ class GameMenuScreen extends ConsumerWidget {
 
  /// Gestiona el guardado asíncrono leyendo la posición actual y enviándola a Drift
   Future<void> _handleSaveGame(BuildContext context, WidgetRef ref) async {
+    
+    /// Verificación de seguridad recomendada por Copilot
+    final currentSession = ref.read(activeGameSessionProvider).value;
+    if (currentSession == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: No hay partida activa para guardar.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return; // Salimos temprano para no mostrar éxito falso
+    }
+    
     // 1. Obtenemos la posición actual exacta del jugador en el mapa
     final currentPosition = ref.read(playerMovementProvider);
 
@@ -263,7 +276,7 @@ class GameMenuScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _confirmExit(BuildContext context) async {
+  Future<void> _confirmExit(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -288,6 +301,7 @@ class GameMenuScreen extends ConsumerWidget {
     );
 
     if (confirmed != true) return;
+    ref.read(activeGameSessionProvider.notifier).clear();
     if (!context.mounted) return;
 
     // pushAndRemoveUntil limpia todo el stack: deja solo StartMenuScreen.

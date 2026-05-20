@@ -133,7 +133,7 @@ class LoadGameScreen extends ConsumerWidget {
           return SessionListTile(
             session: session,
             theme: theme,
-            onResume: () => _resume(context, ref, session),
+            onResume: () => _resume(context, session),
             onDelete: () => _confirmDelete(context, ref, session),
           );
         },
@@ -143,7 +143,7 @@ class LoadGameScreen extends ConsumerWidget {
 
   Future<void> _resume(
     BuildContext context,
-    WidgetRef ref,
+
     GameSession session,
   ) async {
     final navigator = Navigator.of(context);

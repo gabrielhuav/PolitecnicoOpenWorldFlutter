@@ -20,7 +20,10 @@ class LocationService {
   Future<LatLng?> getCurrent() async {
     try {
       final position =
-          await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+          await Geolocator.getCurrentPosition(
+            desiredAccuracy: accuracy,
+            timeLimit: timeout,
+            );
       return LatLng(position.latitude, position.longitude);
     } catch (_) {
       return null;

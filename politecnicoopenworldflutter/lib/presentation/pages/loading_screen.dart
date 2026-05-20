@@ -99,12 +99,12 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
         _setStatus('Recuperando partida guardada...');
         final sessionId = widget.resumeSessionId;
         if (sessionId == null) {
-          throw Exception('ID de sesión inválido para reanudar.');
+          throw 'ID de sesión inválido para reanudar.';
         }
 
         final session = await ref.read(activeGameSessionProvider.notifier).resume(sessionId);
         if (session == null) {
-          throw Exception('No se encontró el registro de la partida guardada.');
+          throw 'No se encontró el registro de la partida guardada.';
         }
 
         targetCoords = LatLng(session.lastLat, session.lastLon);
