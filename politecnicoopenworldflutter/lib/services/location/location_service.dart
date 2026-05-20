@@ -19,8 +19,10 @@ class LocationService {
   /// obtener (timeout, permiso revocado en caliente, etc.).
   Future<LatLng?> getCurrent() async {
     try {
-      final position =
-          await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: accuracy,
+        timeLimit: timeout,
+      );
       return LatLng(position.latitude, position.longitude);
     } catch (_) {
       return null;

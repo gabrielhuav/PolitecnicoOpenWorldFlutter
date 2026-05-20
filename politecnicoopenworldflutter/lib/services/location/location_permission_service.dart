@@ -46,7 +46,8 @@ class LocationPermissionService {
       case LocationPermission.deniedForever:
         return LocationPermissionStatus.deniedForever;
       case LocationPermission.denied:
-      case LocationPermission.unableToDetermine:
+        return LocationPermissionStatus.denied;
+      default:
         return LocationPermissionStatus.denied;
     }
   }

@@ -122,7 +122,7 @@ class GameMenuScreen extends ConsumerWidget {
               title: 'Salir al menú principal',
               icon: Icons.exit_to_app,
               isSecondary: true,
-              onPressed: () => _confirmExit(context),
+              onPressed: () => _confirmExit(context, ref),
             ),
           ],
         ),
@@ -204,7 +204,7 @@ class GameMenuScreen extends ConsumerWidget {
                       title: 'Salir al menú principal',
                       icon: Icons.exit_to_app,
                       isSecondary: true,
-                      onPressed: () => _confirmExit(context),
+                      onPressed: () => _confirmExit(context, ref),
                     ),
                   ],
                 ),
@@ -263,7 +263,7 @@ class GameMenuScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _confirmExit(BuildContext context) async {
+  Future<void> _confirmExit(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -288,6 +288,10 @@ class GameMenuScreen extends ConsumerWidget {
     );
 
     if (confirmed != true) return;
+    if (!context.mounted) return;
+
+    await ref.read(activeGameSessionProvider.notifier).deactivateActiveSession();
+    ref.invalidate(allGameSessionsProvider);
     if (!context.mounted) return;
 
     // pushAndRemoveUntil limpia todo el stack: deja solo StartMenuScreen.

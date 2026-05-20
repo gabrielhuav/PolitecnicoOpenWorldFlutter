@@ -52,10 +52,12 @@ class GameSessionNotifier extends StateNotifier<AsyncValue<GameSession?>> {
   }
 
   /// Persiste la posición actual del jugador en la partida activa.
-  /// No hace nada si no hay partida cargada.
+  /// Lanza [StateError] si no hay partida cargada.
   Future<void> saveCurrentPosition(double lat, double lon) async {
     final current = state.value;
-    if (current == null) return;
+    if (current == null) {
+      throw StateError('No hay partida activa para guardar.');
+    }
     await _repository.updatePosition(
       sessionId: current.id,
       lat: lat,
@@ -71,5 +73,11 @@ class GameSessionNotifier extends StateNotifier<AsyncValue<GameSession?>> {
   /// Limpia el estado (no borra la partida de la BD).
   void clear() {
     state = const AsyncValue.data(null);
+  }
+
+  /// Marca que no hay ninguna partida activa en la BD y en memoria.
+  Future<void> deactivateActiveSession() async {
+    await _repository.clearActive();
+    clear();
   }
 }

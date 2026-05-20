@@ -55,5 +55,7 @@ class GameSessionRepository {
 
   Future<void> resume(String sessionId) => _dao.setActive(sessionId);
 
+  Future<void> clearActive() => _dao.clearActive();
+
   Future<void> delete(String sessionId) => _dao.deleteById(sessionId);
 }

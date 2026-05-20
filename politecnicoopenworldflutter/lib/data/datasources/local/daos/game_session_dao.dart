@@ -60,6 +60,13 @@ class GameSessionDao {
     });
   }
 
+  /// Limpia la sesión activa actual, dejando todas en inactivas.
+  Future<void> clearActive() {
+    return _db
+        .update(_db.gameSessions)
+        .write(const GameSessionsCompanion(isActive: Value(false)));
+  }
+
   /// Devuelve la partida activa si existe.
   Future<GameSession?> getActive() async {
     final row = await (_db.select(_db.gameSessions)
