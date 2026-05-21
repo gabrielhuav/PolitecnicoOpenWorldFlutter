@@ -14,9 +14,9 @@ class NpcSpawnPlan {
 }
 
 class NpcSpawner {
-  static const double _spawnRadiusMeters = 1200;
-  static const double _despawnRadiusMeters = 1800;
-  static const int _hardCap = 40;
+  static const double _spawnRadiusMeters = 600;
+  static const double _despawnRadiusMeters = 1000;
+  static const int _hardCap = 100;
 
   static const double _personSpeed = 1.4;
   static const double _carSpeed = 9.0;
@@ -77,7 +77,7 @@ class NpcSpawner {
     final toSpawn = <Npc>[];
     for (int i = 0; i < needed; i++) {
       final way = nearby[_random.nextInt(nearby.length)];
-      final wantsCar = _random.nextDouble() < 0.65;
+      final wantsCar = _random.nextDouble() < 0.25;
       final type =
           (wantsCar && way.isForCars) ? NpcType.car : NpcType.person;
 

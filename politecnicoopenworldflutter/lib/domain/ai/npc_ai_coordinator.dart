@@ -16,7 +16,7 @@ class NpcAiCoordinator {
 
   List<Npc> _npcs = const [];
   List<MapWay> _ways = const [];
-  int _desiredCount = 20;
+  int _desiredCount = 100;   
 
   NpcAiCoordinator({NpcSpawner? spawner, Random? random})
       : _random = random ?? Random(),
