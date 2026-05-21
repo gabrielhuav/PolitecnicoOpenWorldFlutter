@@ -8,7 +8,6 @@ import '../../data/repositories/settings_repository.dart';
 
 // Importamos la lógica de estado
 import '../../presentation/state/map_provider.dart';
-import '../../presentation/state/player_movement_notifier.dart';
 import '../../services/location/location_service.dart';
 
 

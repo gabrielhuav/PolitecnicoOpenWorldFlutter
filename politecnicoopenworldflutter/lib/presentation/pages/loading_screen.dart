@@ -91,10 +91,8 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
     _loadStarted = true;
 
     try {
-      _setStatus('Descargando calles del campus...');
-      await ref.read(mapStateProvider).loadInitialMapData();
-
-      LatLng targetCoords = _escomFallback; 
+      // Resolver dónde va a estar el jugador.
+      LatLng targetCoords; // Declaramos la variable aquí para usarla en ambos casos
 
       if (widget.isResuming) {
         _setStatus('Recuperando partida guardada...');
@@ -103,28 +101,36 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
           throw 'ID de sesión inválido para reanudar.';
         }
 
-        final session =
-            await ref.read(activeGameSessionProvider.notifier).resume(sessionId);
+        final session = await ref
+                      .read(activeGameSessionProvider.notifier)
+                      .resume(sessionId);
         if (session == null) {
           throw 'No se encontró el registro de la partida guardada.';
         }
-
         targetCoords = LatLng(session.lastLat, session.lastLon);
       } else {
         _setStatus('Solicitando permiso de ubicación...');
-        final spawn = await _resolveSpawnLocation();
-        targetCoords = spawn;
+         targetCoords = await _resolveSpawnLocation();
 
+        // Cargar el mapa centrado en esa posición.
+        _setStatus('Descargando calles del mundo...');
+        await ref.read(mapStateProvider).loadInitialMapData(
+          initialLat: targetCoords.latitude,
+          initialLon: targetCoords.longitude,
+        );
+
+         // Para partida nueva, registrar la sesión con el spawn ya resuelto.
         _setStatus('Guardando nueva partida...');
         final character = ref.read(selectedCharacterProvider);
         await ref.read(activeGameSessionProvider.notifier).startNewSession(
               characterId: character.id,
               characterName: character.name,
-              spawnLat: spawn.latitude,
-              spawnLon: spawn.longitude,
+              spawnLat: targetCoords.latitude,
+              spawnLon: targetCoords.longitude,
             );
       }
 
+    // Colocar al jugador.
       ref.read(playerMovementProvider.notifier).teleport(targetCoords);
       AppLogger.log.i('Jugador colocado en: ${targetCoords.latitude}, ${targetCoords.longitude}');
 

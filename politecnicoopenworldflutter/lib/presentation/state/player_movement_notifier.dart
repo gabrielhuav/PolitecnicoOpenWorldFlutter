@@ -33,6 +33,11 @@ class PlayerMovementNotifier extends StateNotifier<LatLng> {
     }
   }
 
+  Future<LatLng> resolveInitialPosition() async {
+    await updatePositionByGps();
+    return state;
+  }
+
   void move(double deltaLat, double deltaLon) {
     // Si estamos en modo GPS, quizás quieras bloquear el movimiento manual
     // o dejar que el jugador se desplace desde su ubicación real.
