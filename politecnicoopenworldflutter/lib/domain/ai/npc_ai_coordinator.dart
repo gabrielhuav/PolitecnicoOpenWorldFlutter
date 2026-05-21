@@ -16,7 +16,7 @@ class NpcAiCoordinator {
 
   List<Npc> _npcs = const [];
   List<MapWay> _ways = const [];
-  int _desiredCount = 100;   
+  int _desiredCount = 220;   
 
   NpcAiCoordinator({NpcSpawner? spawner, Random? random})
       : _random = random ?? Random(),
@@ -37,7 +37,11 @@ class NpcAiCoordinator {
   }
 
   /// Avanza la simulación. Devuelve la lista nueva de NPCs.
-  List<Npc> tick(double dtSeconds, LatLng playerPos) {
+  List<Npc> tick(
+    double dtSeconds, 
+    LatLng playerPos, [
+  double viewportRadiusMeters = 0,
+  ]) {
     if (_ways.isEmpty) return _npcs;
 
     final plan = _spawner.plan(
@@ -45,6 +49,7 @@ class NpcAiCoordinator {
       ways: _ways,
       playerPos: playerPos,
       desiredCount: _desiredCount,
+      viewportRadiusMeters: viewportRadiusMeters,
     );
 
     final updated = <Npc>[];

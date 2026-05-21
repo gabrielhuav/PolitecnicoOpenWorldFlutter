@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/app_logger.dart';
 import '../../core/utils/providers.dart';
+import '../../core/utils/camera_providers.dart';
 import '../../domain/ai/npc_ai_coordinator.dart';
 import '../../domain/entities/npc.dart';
 import 'player_movement_notifier.dart';
@@ -60,7 +61,8 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     _lastTick = now;
 
     final playerPos = _ref.read(playerMovementProvider);
-    final updated = _coordinator.tick(dt, playerPos);
+    final viewportRadius = _ref.read(viewportRadiusProvider);
+    final updated = _coordinator.tick(dt, playerPos, viewportRadius);
     state = updated;
 
     _tickCounter++;
@@ -70,7 +72,9 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
       AppLogger.log.d(
         'NpcNotifier diag: ways=${ways.length} npcs=${updated.length} '
         'pos=(${playerPos.latitude.toStringAsFixed(5)}, '
-        '${playerPos.longitude.toStringAsFixed(5)}) dt=${dt.toStringAsFixed(3)}s',
+        '${playerPos.longitude.toStringAsFixed(5)}) '
+        'viewportR=${viewportRadius.toStringAsFixed(0)}m '
+        'dt=${dt.toStringAsFixed(3)}s',
       );
     }
 

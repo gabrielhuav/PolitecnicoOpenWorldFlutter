@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:math' as math;
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../../core/utils/map_tile_provider.dart';
+import '../../core/utils/camera_providers.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
 import '../state/npc_notifier.dart';
@@ -25,12 +27,37 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   late final MapController _mapController;
   static const double _initialZoom = 17.5;
 
-  @override
+void _publishViewportRadius(LatLng center, double zoom) {
+  if (!mounted) return;
+  final size = MediaQuery.of(context).size;
+  final radius = _visibleRadiusMeters(center.latitude, zoom, size);
+  ref.read(viewportRadiusProvider.notifier).state = radius;
+}
+
+  static double _visibleRadiusMeters(
+  double cameraLat,
+  double cameraZoom,
+  Size widgetSize,
+) {
+  final metersPerPixel = 156543.03392 *
+      math.cos(cameraLat * math.pi / 180) /
+      math.pow(2, cameraZoom);
+  final halfDiagonalPx = math.sqrt(
+        widgetSize.width * widgetSize.width +
+            widgetSize.height * widgetSize.height,
+      ) /
+      2;
+  return halfDiagonalPx * metersPerPixel;
+}
+
+@override
 void initState() {
   super.initState();
   _mapController = MapController();
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!mounted) return;
+    final initialCenter = ref.read(playerMovementProvider);
+    _publishViewportRadius(initialCenter, _initialZoom);
     ref.read(npcNotifierProvider.notifier).start();
   });
 }
@@ -81,13 +108,19 @@ void dispose() {
             options: MapOptions(
               initialCenter: playerPosition,
               initialZoom: _initialZoom,
-              minZoom: 12.0,
+              minZoom: 15.5,
               maxZoom: 19.0,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.pinchZoom |
                     InteractiveFlag.drag |
                     InteractiveFlag.doubleTapZoom,
               ),
+              onPositionChanged: (camera, hasGesture) {
+                _publishViewportRadius(
+                  _mapController.camera.center,
+                  _mapController.camera.zoom,
+                );
+              },
             ),
             children: [
               TileLayer(

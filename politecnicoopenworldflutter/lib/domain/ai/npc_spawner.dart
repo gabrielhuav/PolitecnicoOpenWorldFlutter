@@ -14,9 +14,9 @@ class NpcSpawnPlan {
 }
 
 class NpcSpawner {
-  static const double _spawnRadiusMeters = 600;
-  static const double _despawnRadiusMeters = 1000;
-  static const int _hardCap = 100;
+  static const double _spawnRadiusMeters = 800;
+  static const double _despawnRadiusMeters = 1700;
+  static const int _hardCap = 300;
 
   static const double _personSpeed = 1.4;
   static const double _carSpeed = 9.0;
@@ -47,6 +47,9 @@ class NpcSpawner {
     required List<MapWay> ways,
     required LatLng playerPos,
     required int desiredCount,
+    // Limita el spawn a un área específica, puedes usar esto.
+    double viewportRadiusMeters = 0,
+
   }) {
     final toDespawn = <String>[];
     for (final npc in current) {
