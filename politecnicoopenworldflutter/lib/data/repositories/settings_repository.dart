@@ -61,6 +61,11 @@ class SettingsRepository {
   Future<void> setShowDatabase(bool value) =>
       _prefs.setBool('show_database', value);
 
+  Future<void> setUseRealLocation(bool value) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('use_real_location', value);
+}
+
   bool get freeMovement => _prefs.getBool('free_movement') ?? false;
   Future<void> setFreeMovement(bool value) =>
       _prefs.setBool('free_movement', value);
