@@ -8,6 +8,9 @@ import '../../data/repositories/settings_repository.dart';
 
 // Importamos la lógica de estado
 import '../../presentation/state/map_provider.dart';
+import '../../presentation/state/player_movement_notifier.dart';
+import '../../services/location/location_service.dart';
+
 
 // ==========================================
 // 1. DATA SOURCES (Fuentes de datos)
@@ -37,4 +40,8 @@ final mapStateProvider = ChangeNotifierProvider<MapProvider>((ref) {
   return MapProvider(
     mapRepository: ref.read(mapRepositoryProvider),
   );
+});
+
+final locationServiceProvider = Provider<LocationService>((ref) {
+  return LocationService(); // Asegúrate que tu constructor no requiera nada extra
 });

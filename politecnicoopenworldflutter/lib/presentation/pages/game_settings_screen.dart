@@ -22,6 +22,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
   late bool _showFps;
   late bool _showDatabase;
   late bool _freeMovement;
+  late bool _useRealLocation;
 
   @override
   void initState() {
@@ -37,6 +38,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     _showFps = ref.read(showFpsProvider);
     _showDatabase = ref.read(showDatabaseProvider);
     _freeMovement = ref.read(freeMovementProvider);
+    _useRealLocation = ref.read(useRealLocationProvider);
   }
 
   Future<void> _save() async {
@@ -49,6 +51,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     ref.read(showFpsProvider.notifier).state = _showFps;
     ref.read(showDatabaseProvider.notifier).state = _showDatabase;
     ref.read(freeMovementProvider.notifier).state = _freeMovement;
+    ref.read(useRealLocationProvider.notifier).state = _useRealLocation;
 
     await Future.wait([
       settingsRepository.setMapProvider(_mapProvider),
@@ -58,6 +61,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
       settingsRepository.setShowFps(_showFps),
       settingsRepository.setShowDatabase(_showDatabase),
       settingsRepository.setFreeMovement(_freeMovement),
+      settingsRepository.setUseRealLocation(_useRealLocation),
     ]);
 
     if (!mounted) return;
@@ -83,6 +87,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     final savedShowFps = ref.watch(showFpsProvider);
     final savedShowDatabase = ref.watch(showDatabaseProvider);
     final savedFreeMovement = ref.watch(freeMovementProvider);
+    final savedUseRealLocation = ref.watch(useRealLocationProvider);
 
     final hasChanges = _mapProvider != savedMapProvider ||
         _controlType != savedControlType ||
@@ -90,7 +95,9 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
         _controlSize != savedControlSize ||
         _showFps != savedShowFps ||
         _showDatabase != savedShowDatabase ||
-        _freeMovement != savedFreeMovement;
+        _freeMovement != savedFreeMovement ||
+        _useRealLocation != savedUseRealLocation;
+
 
     return Scaffold(
       body: Container(
@@ -158,6 +165,13 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
                       icon: Icons.sports_esports_outlined,
                       title: 'Jugabilidad',
                       children: [
+                        _buildToggle(
+                          theme: theme,
+                          label: 'Usar ubicación real (GPS)',
+                          subtitle: 'Si está apagado, aparecerás en ESCOM.',
+                          value: _useRealLocation,
+                          onChanged: (v) => setState(() => _useRealLocation = v),
+                        ),
                         _buildToggle(
                           theme: theme,
                           label: 'Movimiento libre',
@@ -317,7 +331,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
       ),
     );
   }
-
+  
   Widget _buildToggle({
     required AppTheme theme,
     required String label,

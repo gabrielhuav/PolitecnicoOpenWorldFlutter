@@ -7,9 +7,10 @@ import 'package:latlong2/latlong.dart';
 import '../../core/theme/app_theme.dart';       
 import '../../core/theme/theme_extensions.dart'; 
 import '../../core/utils/app_logger.dart';
-import '../../core/utils/location_providers.dart';
-import '../../core/utils/providers.dart';
+import '../../core/utils/location_providers.dart'; //
+import '../../core/utils/providers.dart' hide locationServiceProvider; 
 import '../../core/utils/session_providers.dart';
+import '../../core/utils/game_settings_providers.dart';
 import '../../services/location/location_permission_status.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
@@ -157,21 +158,26 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
   }
 
   Future<LatLng> _resolveSpawnLocation() async {
+    // 1. Verificar si el usuario ha activado el uso de ubicación real
+    final useRealLocation = ref.read(useRealLocationProvider);
+    
+    if (!useRealLocation) {
+      AppLogger.log.d('LoadingScreen: Ubicación real desactivada, usando ESCOM.');
+      return _escomFallback;
+    }
+
+    // 2. Si está activado, procedemos con los permisos y GPS
     final permissionService = ref.read(locationPermissionServiceProvider);
     final locationService = ref.read(locationServiceProvider);
 
     final status = await permissionService.request();
-    switch (status) {
-      case LocationPermissionStatus.granted:
-        _setStatus('Obteniendo tu ubicación...');
-        final pos = await locationService.getCurrent();
-        if (pos != null) return pos;
-        return _escomFallback;
-      case LocationPermissionStatus.denied:
-      case LocationPermissionStatus.deniedForever:
-      case LocationPermissionStatus.serviceDisabled:
-        return _escomFallback;
+    if (status == LocationPermissionStatus.granted) {
+      _setStatus('Obteniendo tu ubicación...');
+      final pos = await locationService.getCurrent();
+      return pos ?? _escomFallback;
     }
+    
+    return _escomFallback;
   }
 
   void _setStatus(String text) {

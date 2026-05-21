@@ -1,4 +1,5 @@
   import 'package:flutter_riverpod/flutter_riverpod.dart';
+  import 'package:latlong2/latlong.dart';
 
   // ── Enum de tipo de control ──────────────────────────────────────────
   enum ControlType {
@@ -22,3 +23,7 @@
   final showDatabaseProvider = StateProvider<bool>((ref) => false);
 
   final freeMovementProvider = StateProvider<bool>((ref) => false);
+
+/// Indica si el usuario ha habilitado explícitamente el uso de su GPS real.
+/// Por defecto es 'false', forzando el uso de ESCOM.
+final useRealLocationProvider = StateProvider<bool>((ref) => false);
