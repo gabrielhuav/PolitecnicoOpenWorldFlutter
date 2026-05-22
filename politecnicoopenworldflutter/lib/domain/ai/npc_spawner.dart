@@ -51,10 +51,14 @@ class NpcSpawner {
     double viewportRadiusMeters = 0,
 
   }) {
+    final effectiveDespawnRadiusMeters = viewportRadiusMeters > 0
+        ? max(viewportRadiusMeters, _spawnRadiusMeters)
+        : _despawnRadiusMeters;
+
     final toDespawn = <String>[];
     for (final npc in current) {
       final pos = LatLng(npc.location.latitude, npc.location.longitude);
-      if (_dist(pos, playerPos) > _despawnRadiusMeters) {
+      if (_dist(pos, playerPos) > effectiveDespawnRadiusMeters) {
         toDespawn.add(npc.id);
       }
     }
