@@ -143,8 +143,8 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
               ),
               onPositionChanged: (camera, hasGesture) {
                 _publishViewportRadius(
-                  _mapController.camera.center,
-                  _mapController.camera.zoom,
+                  camera.center,
+                  camera.zoom,
                 );
               },
             ),

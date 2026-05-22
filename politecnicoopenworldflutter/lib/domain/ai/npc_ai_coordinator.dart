@@ -44,9 +44,9 @@ class NpcAiCoordinator {
 
   /// Avanza la simulación. Devuelve la lista nueva de NPCs.
   List<Npc> tick(
-    double dtSeconds, 
+    double dtSeconds,
     LatLng playerPos, [
-  double viewportRadiusMeters = 0,
+    double viewportRadiusMeters = 0,
   ]) {
     if (_ways.isEmpty) return _npcs;
 
@@ -58,9 +58,10 @@ class NpcAiCoordinator {
       viewportRadiusMeters: viewportRadiusMeters,
     );
 
+    final toDespawnIds = plan.toDespawnIds.toSet();
     final updated = <Npc>[];
     for (final npc in _npcs) {
-      if (plan.toDespawnIds.contains(npc.id)) continue;
+      if (toDespawnIds.contains(npc.id)) continue;
       updated.add(NpcMovementEngine.step(npc, dtSeconds, _ways, _random));
     }
     updated.addAll(plan.toSpawn);

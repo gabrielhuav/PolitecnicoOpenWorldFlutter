@@ -7,7 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/theme/app_theme.dart';       
 import '../../core/theme/theme_extensions.dart'; 
 import '../../core/utils/app_logger.dart';
-import '../../core/utils/location_providers.dart'; //
+import '../../core/utils/location_providers.dart';
 import '../../core/utils/providers.dart';
 import '../../core/utils/session_providers.dart';
 import '../../core/utils/game_settings_providers.dart';
@@ -86,7 +86,8 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
   }
 
   Future<void> _bootstrap() async {
-    AppLogger.log.d('LoadingScreen: bootstrap iniciado (isResuming: ${widget.isResuming})');
+    AppLogger.log
+        .d('LoadingScreen: bootstrap iniciado (isResuming: ${widget.isResuming})');
     if (_loadStarted) return;
     _loadStarted = true;
 
@@ -102,18 +103,17 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
         }
 
         final session = await ref
-                      .read(activeGameSessionProvider.notifier)
-                      .resume(sessionId);
+            .read(activeGameSessionProvider.notifier)
+            .resume(sessionId);
         if (session == null) {
           throw 'No se encontró el registro de la partida guardada.';
         }
         targetCoords = LatLng(session.lastLat, session.lastLon);
       } else {
         _setStatus('Solicitando permiso de ubicación...');
-         targetCoords = await _resolveSpawnLocation();
+        targetCoords = await _resolveSpawnLocation();
 
-
-         // Para partida nueva, registrar la sesión con el spawn ya resuelto.
+        // Para partida nueva, registrar la sesión con el spawn ya resuelto.
         _setStatus('Guardando nueva partida...');
         final character = ref.read(selectedCharacterProvider);
         await ref.read(activeGameSessionProvider.notifier).startNewSession(
@@ -124,17 +124,17 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
             );
       }
 
-        // Cargar el mapa centrado en esa posición para AMBOS casos (Nueva o Reanudada).
-        _setStatus('Descargando calles del mundo...');
-        await ref.read(mapStateProvider).loadInitialMapData(
-          initialLat: targetCoords.latitude,
-          initialLon: targetCoords.longitude,
-        );
+      // Cargar el mapa centrado en esa posición para AMBOS casos (Nueva o Reanudada).
+      _setStatus('Descargando calles del mundo...');
+      await ref.read(mapStateProvider).loadInitialMapData(
+            initialLat: targetCoords.latitude,
+            initialLon: targetCoords.longitude,
+          );
 
-
-    // Colocar al jugador.
+      // Colocar al jugador.
       ref.read(playerMovementProvider.notifier).teleport(targetCoords);
-      AppLogger.log.i('Jugador colocado en: ${targetCoords.latitude}, ${targetCoords.longitude}');
+      AppLogger.log.i(
+          'Jugador colocado en: ${targetCoords.latitude}, ${targetCoords.longitude}');
 
       if (!mounted) return;
       _setStatus('Listo para jugar!');
@@ -146,7 +146,8 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
         MaterialPageRoute(builder: (_) => const WorldMapScreen()),
       );
     } catch (e, stack) {
-      AppLogger.log.e('LoadingScreen bootstrap falló', error: e, stackTrace: stack);
+      AppLogger.log
+          .e('LoadingScreen bootstrap falló', error: e, stackTrace: stack);
       if (!mounted) return;
       setState(() {
         _hasError = true;

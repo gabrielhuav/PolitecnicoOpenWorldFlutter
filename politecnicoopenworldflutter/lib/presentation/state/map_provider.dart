@@ -45,15 +45,15 @@ class MapProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final ways = await _mapRepository.getRoadsForLocation(initialLat, initialLon);
-        _ways = ways;
-        _nodes = ways.expand((w) => w.nodes).toList();
+      _ways = ways;
+      _nodes = ways.expand((w) => w.nodes).toList();
     } catch (e, stack) {
-        _errorMessage = 'Fallo crítico al inicializar el mundo: $e';
-        AppLogger.log.e('loadInitialMapData falló', error: e, stackTrace: stack);
-        rethrow;
+      _errorMessage = 'Fallo crítico al inicializar el mundo: $e';
+      AppLogger.log.e('loadInitialMapData falló', error: e, stackTrace: stack);
+      rethrow;
     } finally {
-        _isLoading = false;
-        notifyListeners();
+      _isLoading = false;
+      notifyListeners();
     }
   }
 

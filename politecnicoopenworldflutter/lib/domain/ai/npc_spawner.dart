@@ -27,9 +27,53 @@ class NpcSpawner {
   ];
 
   static const Distance _dist = Distance();
+  static const double _nearbyWaysRefreshDistanceMeters = 60;
+  static const double _nearbyWaysRefreshViewportDeltaMeters = 30;
   final Random _random;
+  LatLng? _lastNearbyCenter;
+  double? _lastNearbyViewportRadius;
+  List<MapWay>? _lastWaysRef;
+  List<MapWay> _cachedNearbyWays = const [];
 
   NpcSpawner({Random? random}) : _random = random ?? Random();
+
+  bool _shouldRefreshNearbyWays(
+    List<MapWay> ways,
+    LatLng playerPos,
+    double viewportRadiusMeters,
+  ) {
+    if (_lastNearbyCenter == null ||
+        _lastNearbyViewportRadius == null ||
+        !identical(_lastWaysRef, ways)) {
+      return true;
+    }
+    final movedMeters = _dist(_lastNearbyCenter!, playerPos);
+    final viewportDelta =
+        (_lastNearbyViewportRadius! - viewportRadiusMeters).abs();
+    return movedMeters >= _nearbyWaysRefreshDistanceMeters ||
+        viewportDelta >= _nearbyWaysRefreshViewportDeltaMeters;
+  }
+
+  List<MapWay> _getNearbyWays(
+    List<MapWay> ways,
+    LatLng playerPos,
+    double viewportRadiusMeters,
+  ) {
+    if (_shouldRefreshNearbyWays(ways, playerPos, viewportRadiusMeters)) {
+      final nearby = <MapWay>[];
+      for (final w in ways) {
+        if (w.nodes.length < 2) continue;
+        if (_wayMinDistance(w, playerPos) <= _spawnRadiusMeters) {
+          nearby.add(w);
+        }
+      }
+      _cachedNearbyWays = nearby;
+      _lastNearbyCenter = playerPos;
+      _lastNearbyViewportRadius = viewportRadiusMeters;
+      _lastWaysRef = ways;
+    }
+    return _cachedNearbyWays;
+  }
 
   /// Distancia mínima entre el jugador y cualquier nodo de la way.
   double _wayMinDistance(MapWay w, LatLng playerPos) {
@@ -64,19 +108,13 @@ class NpcSpawner {
     }
 
     final aliveAfter = current.length - toDespawn.length;
-    final cap = desiredCount.clamp(0, _hardCap);
-    final needed = (cap - aliveAfter).clamp(0, _hardCap);
+    final cap = desiredCount.clamp(0, _hardCap).toInt();
+    final needed = (cap - aliveAfter).clamp(0, _hardCap).toInt();
     if (needed == 0 || ways.isEmpty) {
       return NpcSpawnPlan(toSpawn: const [], toDespawnIds: toDespawn);
     }
 
-    final nearby = <MapWay>[];
-    for (final w in ways) {
-      if (w.nodes.length < 2) continue;
-      if (_wayMinDistance(w, playerPos) <= _spawnRadiusMeters) {
-        nearby.add(w);
-      }
-    }
+    final nearby = _getNearbyWays(ways, playerPos, viewportRadiusMeters);
     if (nearby.isEmpty) {
       return NpcSpawnPlan(toSpawn: const [], toDespawnIds: toDespawn);
     }
