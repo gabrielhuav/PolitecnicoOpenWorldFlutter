@@ -1,5 +1,4 @@
   import 'package:flutter_riverpod/flutter_riverpod.dart';
-  import 'package:latlong2/latlong.dart';
 
   // ── Enum de tipo de control ──────────────────────────────────────────
   enum ControlType {
