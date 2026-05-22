@@ -8,7 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart'; 
 import '../../core/utils/app_logger.dart';
 import '../../core/utils/location_providers.dart'; //
-import '../../core/utils/providers.dart' hide locationServiceProvider; 
+import '../../core/utils/providers.dart';
 import '../../core/utils/session_providers.dart';
 import '../../core/utils/game_settings_providers.dart';
 import '../../services/location/location_permission_status.dart';
