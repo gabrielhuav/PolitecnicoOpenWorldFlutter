@@ -36,26 +36,26 @@ class MapProvider extends ChangeNotifier {
   /// Descarga o lee los datos iniciales del mapa.
   /// Esta es la función que se llama desde el StartMenuScreen.
   Future<void> loadInitialMapData({
-  double initialLat = 19.5045,
-  double initialLon = -99.1465,
-}) async {
-  AppLogger.log.i('loadInitialMapData: centro=($initialLat, $initialLon)');
-  _isLoading = true;
-  _errorMessage = null;
-  notifyListeners();
-  try {
-    final ways = await _mapRepository.getRoadsForLocation(initialLat, initialLon);
-    _ways = ways;
-    _nodes = ways.expand((w) => w.nodes).toList();
-  } catch (e, stack) {
-    _errorMessage = 'Fallo crítico al inicializar el mundo: $e';
-    AppLogger.log.e('loadInitialMapData falló', error: e, stackTrace: stack);
-    rethrow;
-  } finally {
-    _isLoading = false;
+    double initialLat = 19.5045,
+    double initialLon = -99.1465,
+  }) async {
+    AppLogger.log.i('loadInitialMapData: centro=($initialLat, $initialLon)');
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
+    try {
+      final ways = await _mapRepository.getRoadsForLocation(initialLat, initialLon);
+        _ways = ways;
+        _nodes = ways.expand((w) => w.nodes).toList();
+    } catch (e, stack) {
+        _errorMessage = 'Fallo crítico al inicializar el mundo: $e';
+        AppLogger.log.e('loadInitialMapData falló', error: e, stackTrace: stack);
+        rethrow;
+    } finally {
+        _isLoading = false;
+        notifyListeners();
+    }
   }
-}
 
   /// Ejemplo de función adicional: Refrescar una zona específica si el jugador se mueve mucho
   Future<void> loadChunk(
