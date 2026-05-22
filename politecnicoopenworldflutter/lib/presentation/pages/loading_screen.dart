@@ -112,12 +112,6 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
         _setStatus('Solicitando permiso de ubicación...');
          targetCoords = await _resolveSpawnLocation();
 
-        // Cargar el mapa centrado en esa posición.
-        _setStatus('Descargando calles del mundo...');
-        await ref.read(mapStateProvider).loadInitialMapData(
-          initialLat: targetCoords.latitude,
-          initialLon: targetCoords.longitude,
-        );
 
          // Para partida nueva, registrar la sesión con el spawn ya resuelto.
         _setStatus('Guardando nueva partida...');
@@ -129,6 +123,14 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
               spawnLon: targetCoords.longitude,
             );
       }
+
+        // Cargar el mapa centrado en esa posición para AMBOS casos (Nueva o Reanudada).
+        _setStatus('Descargando calles del mundo...');
+        await ref.read(mapStateProvider).loadInitialMapData(
+          initialLat: targetCoords.latitude,
+          initialLon: targetCoords.longitude,
+        );
+
 
     // Colocar al jugador.
       ref.read(playerMovementProvider.notifier).teleport(targetCoords);
