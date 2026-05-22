@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import '../../services/location/location_service.dart';
 import '../../core/utils/game_settings_providers.dart';
 import '../../core/utils/providers.dart';
 
