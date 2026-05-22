@@ -41,6 +41,25 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     AppLogger.log.i('NpcNotifier: bucle detenido');
   }
 
+  /// Pausa el ticker conservando el estado y la lista de NPCs vivos.
+  /// Pensado para el menú de pausa: al reanudar, los NPCs continúan
+  /// desde donde estaban.
+  void pause() {
+    if (_ticker == null) return;
+    _ticker?.cancel();
+    _ticker = null;
+    AppLogger.log.d('NpcNotifier: bucle pausado');
+  }
+
+  /// Reanuda el ticker tras una pausa. Resetea [_lastTick] para que el
+  /// primer dt no incluya el tiempo que la app estuvo en el menú.
+  void resume() {
+    if (_ticker != null) return;
+    _lastTick = DateTime.now();
+    _ticker = Timer.periodic(_tickInterval, (_) => _onTick());
+    AppLogger.log.d('NpcNotifier: bucle reanudado');
+  }
+
   void setDesiredCount(int count) {
     _coordinator.setDesiredCount(count);
   }

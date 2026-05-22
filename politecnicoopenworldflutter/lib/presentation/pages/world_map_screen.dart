@@ -25,55 +25,76 @@ class WorldMapScreen extends ConsumerStatefulWidget {
 
 class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   late final MapController _mapController;
+
+  /// Referencia capturada al notifier de NPCs. Se obtiene en
+  /// [didChangeDependencies] y se usa en [dispose] porque para entonces
+  /// el WidgetRef ya está invalidado (lanzaría
+  /// "Cannot use 'ref' after the widget was disposed").
+  NpcNotifier? _npcNotifierRef;
+
   static const double _initialZoom = 17.5;
 
-void _publishViewportRadius(LatLng center, double zoom) {
-  if (!mounted) return;
-  final size = MediaQuery.of(context).size;
-  final radius = _visibleRadiusMeters(center.latitude, zoom, size);
-  ref.read(viewportRadiusProvider.notifier).state = radius;
-}
+  void _publishViewportRadius(LatLng center, double zoom) {
+    if (!mounted) return;
+    final size = MediaQuery.of(context).size;
+    final radius = _visibleRadiusMeters(center.latitude, zoom, size);
+    ref.read(viewportRadiusProvider.notifier).state = radius;
+  }
 
   static double _visibleRadiusMeters(
-  double cameraLat,
-  double cameraZoom,
-  Size widgetSize,
-) {
-  final metersPerPixel = 156543.03392 *
-      math.cos(cameraLat * math.pi / 180) /
-      math.pow(2, cameraZoom);
-  final halfDiagonalPx = math.sqrt(
-        widgetSize.width * widgetSize.width +
-            widgetSize.height * widgetSize.height,
-      ) /
-      2;
-  return halfDiagonalPx * metersPerPixel;
-}
+    double cameraLat,
+    double cameraZoom,
+    Size widgetSize,
+  ) {
+    final metersPerPixel = 156543.03392 *
+        math.cos(cameraLat * math.pi / 180) /
+        math.pow(2, cameraZoom);
+    final halfDiagonalPx = math.sqrt(
+          widgetSize.width * widgetSize.width +
+              widgetSize.height * widgetSize.height,
+        ) /
+        2;
+    return halfDiagonalPx * metersPerPixel;
+  }
 
-@override
-void initState() {
-  super.initState();
-  _mapController = MapController();
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted) return;
-    final initialCenter = ref.read(playerMovementProvider);
-    _publishViewportRadius(initialCenter, _initialZoom);
-    ref.read(npcNotifierProvider.notifier).start();
-  });
-}
+  @override
+  void initState() {
+    super.initState();
+    _mapController = MapController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final initialCenter = ref.read(playerMovementProvider);
+      _publishViewportRadius(initialCenter, _initialZoom);
+      ref.read(npcNotifierProvider.notifier).start();
+    });
+  }
 
-@override
-void dispose() {
-  ref.read(npcNotifierProvider.notifier).stop();
-  _mapController.dispose();
-  super.dispose();
-}
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Capturamos la referencia mientras `ref` aún es válido. La usaremos
+    // en dispose() sin tocar el WidgetRef.
+    _npcNotifierRef ??= ref.read(npcNotifierProvider.notifier);
+  }
+
+  @override
+  void dispose() {
+    // No usar `ref` aquí: el ConsumerStatefulElement ya fue desmontado.
+    _npcNotifierRef?.stop();
+    _mapController.dispose();
+    super.dispose();
+  }
 
   /// Abre el menú de pausa como una ruta translúcida (opaque: false) para
   /// que el mapa y el marcador del jugador sigan visibles detrás del
   /// overlay, al estilo Minecraft.
-  void _openPauseMenu() {
-    Navigator.push(
+  ///
+  /// Pausa los NPCs al entrar y los reanuda al volver (si no se salió
+  /// al menú principal, en cuyo caso esta pantalla ya estará desmontada
+  /// y el dispose() habrá detenido el bucle).
+  Future<void> _openPauseMenu() async {
+    ref.read(npcNotifierProvider.notifier).pause();
+    await Navigator.push(
       context,
       PageRouteBuilder(
         opaque: false,
@@ -85,6 +106,11 @@ void dispose() {
             FadeTransition(opacity: animation, child: child),
       ),
     );
+    // Si el usuario salió al menú principal, este widget ya estará
+    // desmontado y dispose() habrá llamado a stop(). Solo reanudamos
+    // cuando seguimos vivos (es decir, cerró el menú con "Continuar").
+    if (!mounted) return;
+    ref.read(npcNotifierProvider.notifier).resume();
   }
 
   @override
