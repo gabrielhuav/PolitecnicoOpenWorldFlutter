@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,10 +7,13 @@ import 'package:latlong2/latlong.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../../core/utils/map_tile_provider.dart';
+import '../../core/utils/camera_providers.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
+import '../state/npc_notifier.dart';
+import '../widgets/npc_marker_layer.dart';
 import '../widgets/game_controls.dart';
-import 'start_menu_screen.dart';
+
 import 'game_menu_screen.dart';
 
 class WorldMapScreen extends ConsumerStatefulWidget {
@@ -21,18 +25,92 @@ class WorldMapScreen extends ConsumerStatefulWidget {
 
 class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   late final MapController _mapController;
+
+  /// Referencia capturada al notifier de NPCs. Se obtiene en
+  /// [didChangeDependencies] y se usa en [dispose] porque para entonces
+  /// el WidgetRef ya está invalidado (lanzaría
+  /// "Cannot use 'ref' after the widget was disposed").
+  NpcNotifier? _npcNotifierRef;
+
   static const double _initialZoom = 17.5;
+
+  void _publishViewportRadius(LatLng center, double zoom) {
+    if (!mounted) return;
+    final size = MediaQuery.of(context).size;
+    final radius = _visibleRadiusMeters(center.latitude, zoom, size);
+    ref.read(viewportRadiusProvider.notifier).state = radius;
+  }
+
+  static double _visibleRadiusMeters(
+    double cameraLat,
+    double cameraZoom,
+    Size widgetSize,
+  ) {
+    final metersPerPixel = 156543.03392 *
+        math.cos(cameraLat * math.pi / 180) /
+        math.pow(2, cameraZoom);
+    final halfDiagonalPx = math.sqrt(
+          widgetSize.width * widgetSize.width +
+              widgetSize.height * widgetSize.height,
+        ) /
+        2;
+    return halfDiagonalPx * metersPerPixel;
+  }
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final initialCenter = ref.read(playerMovementProvider);
+      _publishViewportRadius(initialCenter, _initialZoom);
+      ref.read(npcNotifierProvider.notifier).start();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Capturamos la referencia mientras `ref` aún es válido. La usaremos
+    // en dispose() sin tocar el WidgetRef.
+    _npcNotifierRef ??= ref.read(npcNotifierProvider.notifier);
   }
 
   @override
   void dispose() {
+    // No usar `ref` aquí: el ConsumerStatefulElement ya fue desmontado.
+    _npcNotifierRef?.stop();
     _mapController.dispose();
     super.dispose();
+  }
+
+  /// Abre el menú de pausa como una ruta translúcida (opaque: false) para
+  /// que el mapa y el marcador del jugador sigan visibles detrás del
+  /// overlay, al estilo Minecraft.
+  ///
+  /// Pausa los NPCs al entrar y los reanuda al volver (si no se salió
+  /// al menú principal, en cuyo caso esta pantalla ya estará desmontada
+  /// y el dispose() habrá detenido el bucle).
+  Future<void> _openPauseMenu() async {
+    ref.read(npcNotifierProvider.notifier).pause();
+    await Navigator.push(
+      context,
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: false,
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 150),
+        pageBuilder: (_, __, ___) => const GameMenuScreen(),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
+    // Si el usuario salió al menú principal, este widget ya estará
+    // desmontado y dispose() habrá llamado a stop(). Solo reanudamos
+    // cuando seguimos vivos (es decir, cerró el menú con "Continuar").
+    if (!mounted) return;
+    ref.read(npcNotifierProvider.notifier).resume();
   }
 
   @override
@@ -56,13 +134,20 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             options: MapOptions(
               initialCenter: playerPosition,
               initialZoom: _initialZoom,
-              minZoom: 12.0,
+              minZoom: 15.5,
               maxZoom: 19.0,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.pinchZoom |
                     InteractiveFlag.drag |
                     InteractiveFlag.doubleTapZoom,
               ),
+              onPositionChanged: (position, hasGesture) {
+              // En flutter_map 6.x, MapPosition.center y MapPosition.zoom son nullable.
+              final center = position.center;
+              final zoom = position.zoom;
+              if (center == null || zoom == null) return;
+              _publishViewportRadius(center, zoom);
+            },
             ),
             children: [
               TileLayer(
@@ -71,6 +156,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
                 maxNativeZoom: tileProvider.maxZoom,
               ),
+              const NpcMarkerLayer(),
               MarkerLayer(
                 markers: [
                   Marker(
@@ -94,14 +180,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
               mini: true,
               backgroundColor: theme.surfacePrimary,
               foregroundColor: theme.textPrimary,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const GameMenuScreen(),
-                  ),
-                );
-              },
+              onPressed: _openPauseMenu,
               child: const Icon(Icons.menu),
             ),
           ),

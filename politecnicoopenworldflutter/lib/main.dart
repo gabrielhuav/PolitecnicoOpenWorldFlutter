@@ -59,6 +59,9 @@ void main() async {
         freeMovementProvider.overrideWith(
           (ref) => settingsRepository.freeMovement,
         ),
+        useRealLocationProvider.overrideWith(
+          (ref) => settingsRepository.useRealLocation,
+        ),
         selectedThemeIdProvider.overrideWith(
           (ref) => settingsRepository.themeId,
         ),

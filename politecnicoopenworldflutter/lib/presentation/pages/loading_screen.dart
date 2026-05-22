@@ -10,6 +10,7 @@ import '../../core/utils/app_logger.dart';
 import '../../core/utils/location_providers.dart';
 import '../../core/utils/providers.dart';
 import '../../core/utils/session_providers.dart';
+import '../../core/utils/game_settings_providers.dart';
 import '../../services/location/location_permission_status.dart';
 import '../state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
@@ -85,15 +86,14 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
   }
 
   Future<void> _bootstrap() async {
-    AppLogger.log.d('LoadingScreen: bootstrap iniciado (isResuming: ${widget.isResuming})');
+    AppLogger.log
+        .d('LoadingScreen: bootstrap iniciado (isResuming: ${widget.isResuming})');
     if (_loadStarted) return;
     _loadStarted = true;
 
     try {
-      _setStatus('Descargando calles del campus...');
-      await ref.read(mapStateProvider).loadInitialMapData();
-
-      LatLng targetCoords = _escomFallback; 
+      // Resolver dónde va a estar el jugador.
+      LatLng targetCoords; // Declaramos la variable aquí para usarla en ambos casos
 
       if (widget.isResuming) {
         _setStatus('Recuperando partida guardada...');
@@ -102,30 +102,39 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
           throw 'ID de sesión inválido para reanudar.';
         }
 
-        final session =
-            await ref.read(activeGameSessionProvider.notifier).resume(sessionId);
+        final session = await ref
+            .read(activeGameSessionProvider.notifier)
+            .resume(sessionId);
         if (session == null) {
           throw 'No se encontró el registro de la partida guardada.';
         }
-
         targetCoords = LatLng(session.lastLat, session.lastLon);
       } else {
         _setStatus('Solicitando permiso de ubicación...');
-        final spawn = await _resolveSpawnLocation();
-        targetCoords = spawn;
+        targetCoords = await _resolveSpawnLocation();
 
+        // Para partida nueva, registrar la sesión con el spawn ya resuelto.
         _setStatus('Guardando nueva partida...');
         final character = ref.read(selectedCharacterProvider);
         await ref.read(activeGameSessionProvider.notifier).startNewSession(
               characterId: character.id,
               characterName: character.name,
-              spawnLat: spawn.latitude,
-              spawnLon: spawn.longitude,
+              spawnLat: targetCoords.latitude,
+              spawnLon: targetCoords.longitude,
             );
       }
 
+      // Cargar el mapa centrado en esa posición para AMBOS casos (Nueva o Reanudada).
+      _setStatus('Descargando calles del mundo...');
+      await ref.read(mapStateProvider).loadInitialMapData(
+            initialLat: targetCoords.latitude,
+            initialLon: targetCoords.longitude,
+          );
+
+      // Colocar al jugador.
       ref.read(playerMovementProvider.notifier).teleport(targetCoords);
-      AppLogger.log.i('Jugador colocado en: ${targetCoords.latitude}, ${targetCoords.longitude}');
+      AppLogger.log.i(
+          'Jugador colocado en: ${targetCoords.latitude}, ${targetCoords.longitude}');
 
       if (!mounted) return;
       _setStatus('Listo para jugar!');
@@ -137,7 +146,8 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
         MaterialPageRoute(builder: (_) => const WorldMapScreen()),
       );
     } catch (e, stack) {
-      AppLogger.log.e('LoadingScreen bootstrap falló', error: e, stackTrace: stack);
+      AppLogger.log
+          .e('LoadingScreen bootstrap falló', error: e, stackTrace: stack);
       if (!mounted) return;
       setState(() {
         _hasError = true;
@@ -157,21 +167,26 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
   }
 
   Future<LatLng> _resolveSpawnLocation() async {
+    // 1. Verificar si el usuario ha activado el uso de ubicación real
+    final useRealLocation = ref.read(useRealLocationProvider);
+    
+    if (!useRealLocation) {
+      AppLogger.log.d('LoadingScreen: Ubicación real desactivada, usando ESCOM.');
+      return _escomFallback;
+    }
+
+    // 2. Si está activado, procedemos con los permisos y GPS
     final permissionService = ref.read(locationPermissionServiceProvider);
     final locationService = ref.read(locationServiceProvider);
 
     final status = await permissionService.request();
-    switch (status) {
-      case LocationPermissionStatus.granted:
-        _setStatus('Obteniendo tu ubicación...');
-        final pos = await locationService.getCurrent();
-        if (pos != null) return pos;
-        return _escomFallback;
-      case LocationPermissionStatus.denied:
-      case LocationPermissionStatus.deniedForever:
-      case LocationPermissionStatus.serviceDisabled:
-        return _escomFallback;
+    if (status == LocationPermissionStatus.granted) {
+      _setStatus('Obteniendo tu ubicación...');
+      final pos = await locationService.getCurrent();
+      return pos ?? _escomFallback;
     }
+    
+    return _escomFallback;
   }
 
   void _setStatus(String text) {

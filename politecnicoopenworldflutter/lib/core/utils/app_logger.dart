@@ -49,15 +49,6 @@ class AppLogger {
     return _instance!;
   }
 
-  static Future<String> readLog() async {
-    if (_logFile == null || !_logFile!.existsSync()) return '';
-    return _logFile!.readAsString();
-  }
-
-  static Future<void> clearLog() async {
-    if (_logFile?.existsSync() == true) await _logFile!.delete();
-  }
-
   static Future<void> _trimLogIfNeeded() async {
     if (_logFile == null || !_logFile!.existsSync()) return;
     final fileSize = await _logFile!.length();

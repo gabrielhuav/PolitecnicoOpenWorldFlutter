@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,7 +5,6 @@ import '../../core/theme/theme_extensions.dart';
 import '../widgets/menu_button.dart';
 import 'app_settings_screen.dart';
 import 'character_selection_screen.dart';
-import 'debug_log_screen.dart';
 import 'game_settings_screen.dart';
 import 'load_game_screen.dart';
 
@@ -181,6 +179,15 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
     });
   }
 
+  void _showComingSoon() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Próximamente'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -201,6 +208,13 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
         ),
         const SizedBox(height: 15),
         MenuButton(
+          title: 'Multijugador',
+          icon: Icons.people_outline,
+          isSecondary: true,
+          onPressed: _isNavigating ? null : _showComingSoon,
+        ),
+        const SizedBox(height: 15),
+        MenuButton(
           title: 'Configuración',
           icon: Icons.videogame_asset_outlined,
           isSecondary: true,
@@ -214,22 +228,6 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
                   );
                 },
         ),
-        if (kDebugMode) ...[
-          const SizedBox(height: 15),
-          MenuButton(
-            title: 'Registros de depuración',
-            icon: Icons.bug_report_outlined,
-            isSecondary: true,
-            onPressed: _isNavigating
-                ? null
-                : () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DebugLogScreen()),
-                    );
-                  },
-          ),
-        ],
       ],
     );
   }

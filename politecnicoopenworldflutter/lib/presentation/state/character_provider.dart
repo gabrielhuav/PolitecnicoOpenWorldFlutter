@@ -1,23 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/character.dart';
+import '../../domain/entities/character_visual_config.dart';
 
-/// Lista fija de personajes disponibles + slot de personalización.
 final availableCharactersProvider = Provider<List<Character>>((ref) {
   return const [
     Character(
       id: 'char_aventurero',
       name: 'Aventurero',
       description: 'Explorador clásico del Politécnico',
+      visualConfig: CharacterVisualConfig.adventurer,
     ),
     Character(
       id: 'char_exploradora',
       name: 'Exploradora',
       description: 'Ágil y resistente al sol del DF',
+      visualConfig: CharacterVisualConfig.explorer,
     ),
     Character(
       id: 'char_ingeniero',
       name: 'Ingeniero',
       description: 'Conoce todos los atajos del campus',
+      visualConfig: CharacterVisualConfig.engineer,
     ),
     Character(
       id: 'char_custom',
@@ -28,10 +31,8 @@ final availableCharactersProvider = Provider<List<Character>>((ref) {
   ];
 });
 
-/// Índice del personaje actualmente seleccionado en la lista.
 final selectedCharacterIndexProvider = StateProvider<int>((ref) => 0);
 
-/// Personaje resuelto a partir del índice seleccionado.
 final selectedCharacterProvider = Provider<Character>((ref) {
   final list = ref.watch(availableCharactersProvider);
   final index = ref.watch(selectedCharacterIndexProvider);

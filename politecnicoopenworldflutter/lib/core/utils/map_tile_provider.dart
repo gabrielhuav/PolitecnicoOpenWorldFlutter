@@ -39,11 +39,12 @@ enum MapTileProvider {
     category: MapTileCategory.themed,
   ),
 
-  // OpenStreetMap directo (cuidado con rate limiting)
+  // OpenStreetMap directo. La operación de OSM pidió no usar subdominios
+  // (ver https://github.com/openstreetmap/operations/issues/737), así que
+  // apuntamos a tile.openstreetmap.org directo y dejamos subdomains vacío.
   osm(
     label: 'OpenStreetMap',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    subdomains: ['a', 'b', 'c'],
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '© OpenStreetMap contributors',
     category: MapTileCategory.standard,
   ),
