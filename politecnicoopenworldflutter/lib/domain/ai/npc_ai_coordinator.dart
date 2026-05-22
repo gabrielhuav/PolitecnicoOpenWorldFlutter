@@ -19,7 +19,13 @@ class NpcAiCoordinator {
   int _desiredCount = 220;   
 
   NpcAiCoordinator({NpcSpawner? spawner, Random? random})
-      : _random = random ?? Random(),
+      : this._(
+          spawner: spawner,
+          random: random ?? Random(),
+        );
+
+  NpcAiCoordinator._({NpcSpawner? spawner, required Random random})
+      : _random = random,
         _spawner = spawner ?? NpcSpawner(random: random);
 
   List<Npc> get npcs => List.unmodifiable(_npcs);
