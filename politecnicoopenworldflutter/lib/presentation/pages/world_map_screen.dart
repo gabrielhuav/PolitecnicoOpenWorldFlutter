@@ -141,12 +141,13 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                     InteractiveFlag.drag |
                     InteractiveFlag.doubleTapZoom,
               ),
-              onPositionChanged: (camera, hasGesture) {
-                _publishViewportRadius(
-                  camera.center,
-                  camera.zoom,
-                );
-              },
+              onPositionChanged: (position, hasGesture) {
+              // En flutter_map 6.x, MapPosition.center y MapPosition.zoom son nullable.
+              final center = position.center;
+              final zoom = position.zoom;
+              if (center == null || zoom == null) return;
+              _publishViewportRadius(center, zoom);
+            },
             ),
             children: [
               TileLayer(
