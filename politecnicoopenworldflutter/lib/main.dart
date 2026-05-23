@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'presentation/pages/start_menu_screen.dart';
+import 'features/main_menu/ui/start_menu_screen.dart';
 import 'core/utils/app_logger.dart';
-import 'core/utils/game_settings_providers.dart';
-import 'core/utils/map_tile_provider.dart';
+import 'features/settings/state/game_settings_providers.dart';
+import 'features/settings/state/map_tile_provider.dart';
 import 'core/utils/providers.dart';
-import 'core/theme/theme_providers.dart';
-import 'data/repositories/settings_repository.dart';
+import 'ui/theme/theme_providers.dart';
+import 'data/repository/settings_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

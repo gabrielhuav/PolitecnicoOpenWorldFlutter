@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:politecnicoopenworldflutter/data/datasources/local/app_database.dart';
+import 'package:politecnicoopenworldflutter/data/local/pow_database.dart';
 import 'package:drift/native.dart';
 
 void main() {
