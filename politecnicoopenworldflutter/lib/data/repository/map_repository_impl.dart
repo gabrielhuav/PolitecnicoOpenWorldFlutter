@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../domain/models/map_way.dart';
 import '../local/pow_database.dart';
-import 'overpass_repository.dart';
+import '../../data/network/overpass_repository.dart';
 
 class MapRepository {
   final PowDatabase _db;

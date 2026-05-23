@@ -23,12 +23,13 @@ part 'pow_database.g.dart';
     SavedLocations,
   ],
 )
+
 class PowDatabase extends _$PowDatabase {
   PowDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
   int get schemaVersion => 2;
-
+  
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (Migrator m) async {

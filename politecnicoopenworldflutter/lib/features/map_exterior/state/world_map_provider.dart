@@ -4,7 +4,7 @@ import '../../../core/utils/app_logger.dart';
 import '../../../domain/models/map_node.dart';
 import '../../../domain/models/map_way.dart';
 // Importamos el repositorio
-import '../../../data/repository/map_repository.dart';
+import '../../../data/repository/map_repository_impl.dart';
 
 class WorldMapProvider extends ChangeNotifier {
   // Inyectamos el repositorio que se encargará de decidir si usa Overpass o la DB local

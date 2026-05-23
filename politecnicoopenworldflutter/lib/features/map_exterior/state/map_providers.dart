@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/local/pow_database.dart';
-import '../../../data/repository/map_repository.dart';
-import '../../../data/repository/overpass_repository.dart';
+import '../../../data/repository/map_repository_impl.dart';
+import '../../../data/network/overpass_repository.dart';
 import 'world_map_provider.dart';
+// lib/data/repository/map_repository.dart
+export '../../../data/repository/map_repository_impl.dart';
 
 // ==========================================
 // 1. DATA SOURCES (Fuentes de datos)

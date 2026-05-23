@@ -1956,9 +1956,9 @@ class SavedLocationsCompanion extends UpdateCompanion<SavedLocationRow> {
   }
 }
 
-abstract class _$AppDatabase extends GeneratedDatabase {
-  _$AppDatabase(QueryExecutor e) : super(e);
-  $AppDatabaseManager get managers => $AppDatabaseManager(this);
+abstract class _$PowDatabase extends GeneratedDatabase {
+  _$PowDatabase(QueryExecutor e) : super(e);
+  $PowDatabaseManager get managers => $PowDatabaseManager(this);
   late final $MapTilesTable mapTiles = $MapTilesTable(this);
   late final $RoadZonesTable roadZones = $RoadZonesTable(this);
   late final $RoadWaysTable roadWays = $RoadWaysTable(this);
@@ -2012,7 +2012,7 @@ typedef $$MapTilesTableUpdateCompanionBuilder = MapTilesCompanion Function({
 });
 
 class $$MapTilesTableFilterComposer
-    extends Composer<_$AppDatabase, $MapTilesTable> {
+    extends Composer<_$PowDatabase, $MapTilesTable> {
   $$MapTilesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -2040,7 +2040,7 @@ class $$MapTilesTableFilterComposer
 }
 
 class $$MapTilesTableOrderingComposer
-    extends Composer<_$AppDatabase, $MapTilesTable> {
+    extends Composer<_$PowDatabase, $MapTilesTable> {
   $$MapTilesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -2069,7 +2069,7 @@ class $$MapTilesTableOrderingComposer
 }
 
 class $$MapTilesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $MapTilesTable> {
+    extends Composer<_$PowDatabase, $MapTilesTable> {
   $$MapTilesTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -2097,7 +2097,7 @@ class $$MapTilesTableAnnotationComposer
 }
 
 class $$MapTilesTableTableManager extends RootTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $MapTilesTable,
     MapTile,
     $$MapTilesTableFilterComposer,
@@ -2105,10 +2105,10 @@ class $$MapTilesTableTableManager extends RootTableManager<
     $$MapTilesTableAnnotationComposer,
     $$MapTilesTableCreateCompanionBuilder,
     $$MapTilesTableUpdateCompanionBuilder,
-    (MapTile, BaseReferences<_$AppDatabase, $MapTilesTable, MapTile>),
+    (MapTile, BaseReferences<_$PowDatabase, $MapTilesTable, MapTile>),
     MapTile,
     PrefetchHooks Function()> {
-  $$MapTilesTableTableManager(_$AppDatabase db, $MapTilesTable table)
+  $$MapTilesTableTableManager(_$PowDatabase db, $MapTilesTable table)
       : super(TableManagerState(
           db: db,
           table: table,
@@ -2162,7 +2162,7 @@ class $$MapTilesTableTableManager extends RootTableManager<
 }
 
 typedef $$MapTilesTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $MapTilesTable,
     MapTile,
     $$MapTilesTableFilterComposer,
@@ -2170,7 +2170,7 @@ typedef $$MapTilesTableProcessedTableManager = ProcessedTableManager<
     $$MapTilesTableAnnotationComposer,
     $$MapTilesTableCreateCompanionBuilder,
     $$MapTilesTableUpdateCompanionBuilder,
-    (MapTile, BaseReferences<_$AppDatabase, $MapTilesTable, MapTile>),
+    (MapTile, BaseReferences<_$PowDatabase, $MapTilesTable, MapTile>),
     MapTile,
     PrefetchHooks Function()>;
 typedef $$RoadZonesTableCreateCompanionBuilder = RoadZonesCompanion Function({
@@ -2185,11 +2185,11 @@ typedef $$RoadZonesTableUpdateCompanionBuilder = RoadZonesCompanion Function({
 });
 
 final class $$RoadZonesTableReferences
-    extends BaseReferences<_$AppDatabase, $RoadZonesTable, RoadZone> {
+    extends BaseReferences<_$PowDatabase, $RoadZonesTable, RoadZone> {
   $$RoadZonesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<$RoadWaysTable, List<RoadWay>> _roadWaysRefsTable(
-          _$AppDatabase db) =>
+          _$PowDatabase db) =>
       MultiTypedResultKey.fromTable(db.roadWays,
           aliasName:
               $_aliasNameGenerator(db.roadZones.cellKey, db.roadWays.cellKey));
@@ -2205,7 +2205,7 @@ final class $$RoadZonesTableReferences
 }
 
 class $$RoadZonesTableFilterComposer
-    extends Composer<_$AppDatabase, $RoadZonesTable> {
+    extends Composer<_$PowDatabase, $RoadZonesTable> {
   $$RoadZonesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -2242,7 +2242,7 @@ class $$RoadZonesTableFilterComposer
 }
 
 class $$RoadZonesTableOrderingComposer
-    extends Composer<_$AppDatabase, $RoadZonesTable> {
+    extends Composer<_$PowDatabase, $RoadZonesTable> {
   $$RoadZonesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -2258,7 +2258,7 @@ class $$RoadZonesTableOrderingComposer
 }
 
 class $$RoadZonesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $RoadZonesTable> {
+    extends Composer<_$PowDatabase, $RoadZonesTable> {
   $$RoadZonesTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -2295,7 +2295,7 @@ class $$RoadZonesTableAnnotationComposer
 }
 
 class $$RoadZonesTableTableManager extends RootTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $RoadZonesTable,
     RoadZone,
     $$RoadZonesTableFilterComposer,
@@ -2306,7 +2306,7 @@ class $$RoadZonesTableTableManager extends RootTableManager<
     (RoadZone, $$RoadZonesTableReferences),
     RoadZone,
     PrefetchHooks Function({bool roadWaysRefs})> {
-  $$RoadZonesTableTableManager(_$AppDatabase db, $RoadZonesTable table)
+  $$RoadZonesTableTableManager(_$PowDatabase db, $RoadZonesTable table)
       : super(TableManagerState(
           db: db,
           table: table,
@@ -2370,7 +2370,7 @@ class $$RoadZonesTableTableManager extends RootTableManager<
 }
 
 typedef $$RoadZonesTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $RoadZonesTable,
     RoadZone,
     $$RoadZonesTableFilterComposer,
@@ -2397,10 +2397,10 @@ typedef $$RoadWaysTableUpdateCompanionBuilder = RoadWaysCompanion Function({
 });
 
 final class $$RoadWaysTableReferences
-    extends BaseReferences<_$AppDatabase, $RoadWaysTable, RoadWay> {
+    extends BaseReferences<_$PowDatabase, $RoadWaysTable, RoadWay> {
   $$RoadWaysTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $RoadZonesTable _cellKeyTable(_$AppDatabase db) =>
+  static $RoadZonesTable _cellKeyTable(_$PowDatabase db) =>
       db.roadZones.createAlias(
           $_aliasNameGenerator(db.roadWays.cellKey, db.roadZones.cellKey));
 
@@ -2417,7 +2417,7 @@ final class $$RoadWaysTableReferences
 }
 
 class $$RoadWaysTableFilterComposer
-    extends Composer<_$AppDatabase, $RoadWaysTable> {
+    extends Composer<_$PowDatabase, $RoadWaysTable> {
   $$RoadWaysTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -2456,7 +2456,7 @@ class $$RoadWaysTableFilterComposer
 }
 
 class $$RoadWaysTableOrderingComposer
-    extends Composer<_$AppDatabase, $RoadWaysTable> {
+    extends Composer<_$PowDatabase, $RoadWaysTable> {
   $$RoadWaysTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -2495,7 +2495,7 @@ class $$RoadWaysTableOrderingComposer
 }
 
 class $$RoadWaysTableAnnotationComposer
-    extends Composer<_$AppDatabase, $RoadWaysTable> {
+    extends Composer<_$PowDatabase, $RoadWaysTable> {
   $$RoadWaysTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -2534,7 +2534,7 @@ class $$RoadWaysTableAnnotationComposer
 }
 
 class $$RoadWaysTableTableManager extends RootTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $RoadWaysTable,
     RoadWay,
     $$RoadWaysTableFilterComposer,
@@ -2545,7 +2545,7 @@ class $$RoadWaysTableTableManager extends RootTableManager<
     (RoadWay, $$RoadWaysTableReferences),
     RoadWay,
     PrefetchHooks Function({bool cellKey})> {
-  $$RoadWaysTableTableManager(_$AppDatabase db, $RoadWaysTable table)
+  $$RoadWaysTableTableManager(_$PowDatabase db, $RoadWaysTable table)
       : super(TableManagerState(
           db: db,
           table: table,
@@ -2626,7 +2626,7 @@ class $$RoadWaysTableTableManager extends RootTableManager<
 }
 
 typedef $$RoadWaysTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $RoadWaysTable,
     RoadWay,
     $$RoadWaysTableFilterComposer,
@@ -2655,7 +2655,7 @@ typedef $$RoadNodesTableUpdateCompanionBuilder = RoadNodesCompanion Function({
 });
 
 class $$RoadNodesTableFilterComposer
-    extends Composer<_$AppDatabase, $RoadNodesTable> {
+    extends Composer<_$PowDatabase, $RoadNodesTable> {
   $$RoadNodesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -2680,7 +2680,7 @@ class $$RoadNodesTableFilterComposer
 }
 
 class $$RoadNodesTableOrderingComposer
-    extends Composer<_$AppDatabase, $RoadNodesTable> {
+    extends Composer<_$PowDatabase, $RoadNodesTable> {
   $$RoadNodesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -2706,7 +2706,7 @@ class $$RoadNodesTableOrderingComposer
 }
 
 class $$RoadNodesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $RoadNodesTable> {
+    extends Composer<_$PowDatabase, $RoadNodesTable> {
   $$RoadNodesTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -2731,7 +2731,7 @@ class $$RoadNodesTableAnnotationComposer
 }
 
 class $$RoadNodesTableTableManager extends RootTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $RoadNodesTable,
     RoadNode,
     $$RoadNodesTableFilterComposer,
@@ -2739,10 +2739,10 @@ class $$RoadNodesTableTableManager extends RootTableManager<
     $$RoadNodesTableAnnotationComposer,
     $$RoadNodesTableCreateCompanionBuilder,
     $$RoadNodesTableUpdateCompanionBuilder,
-    (RoadNode, BaseReferences<_$AppDatabase, $RoadNodesTable, RoadNode>),
+    (RoadNode, BaseReferences<_$PowDatabase, $RoadNodesTable, RoadNode>),
     RoadNode,
     PrefetchHooks Function()> {
-  $$RoadNodesTableTableManager(_$AppDatabase db, $RoadNodesTable table)
+  $$RoadNodesTableTableManager(_$PowDatabase db, $RoadNodesTable table)
       : super(TableManagerState(
           db: db,
           table: table,
@@ -2792,7 +2792,7 @@ class $$RoadNodesTableTableManager extends RootTableManager<
 }
 
 typedef $$RoadNodesTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $RoadNodesTable,
     RoadNode,
     $$RoadNodesTableFilterComposer,
@@ -2800,7 +2800,7 @@ typedef $$RoadNodesTableProcessedTableManager = ProcessedTableManager<
     $$RoadNodesTableAnnotationComposer,
     $$RoadNodesTableCreateCompanionBuilder,
     $$RoadNodesTableUpdateCompanionBuilder,
-    (RoadNode, BaseReferences<_$AppDatabase, $RoadNodesTable, RoadNode>),
+    (RoadNode, BaseReferences<_$PowDatabase, $RoadNodesTable, RoadNode>),
     RoadNode,
     PrefetchHooks Function()>;
 typedef $$GameSessionsTableCreateCompanionBuilder = GameSessionsCompanion
@@ -2829,11 +2829,11 @@ typedef $$GameSessionsTableUpdateCompanionBuilder = GameSessionsCompanion
 });
 
 final class $$GameSessionsTableReferences
-    extends BaseReferences<_$AppDatabase, $GameSessionsTable, GameSessionRow> {
+    extends BaseReferences<_$PowDatabase, $GameSessionsTable, GameSessionRow> {
   $$GameSessionsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<$SavedLocationsTable, List<SavedLocationRow>>
-      _savedLocationsRefsTable(_$AppDatabase db) =>
+      _savedLocationsRefsTable(_$PowDatabase db) =>
           MultiTypedResultKey.fromTable(db.savedLocations,
               aliasName: $_aliasNameGenerator(
                   db.gameSessions.id, db.savedLocations.sessionId));
@@ -2849,7 +2849,7 @@ final class $$GameSessionsTableReferences
 }
 
 class $$GameSessionsTableFilterComposer
-    extends Composer<_$AppDatabase, $GameSessionsTable> {
+    extends Composer<_$PowDatabase, $GameSessionsTable> {
   $$GameSessionsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -2904,7 +2904,7 @@ class $$GameSessionsTableFilterComposer
 }
 
 class $$GameSessionsTableOrderingComposer
-    extends Composer<_$AppDatabase, $GameSessionsTable> {
+    extends Composer<_$PowDatabase, $GameSessionsTable> {
   $$GameSessionsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -2939,7 +2939,7 @@ class $$GameSessionsTableOrderingComposer
 }
 
 class $$GameSessionsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $GameSessionsTable> {
+    extends Composer<_$PowDatabase, $GameSessionsTable> {
   $$GameSessionsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -2994,7 +2994,7 @@ class $$GameSessionsTableAnnotationComposer
 }
 
 class $$GameSessionsTableTableManager extends RootTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $GameSessionsTable,
     GameSessionRow,
     $$GameSessionsTableFilterComposer,
@@ -3005,7 +3005,7 @@ class $$GameSessionsTableTableManager extends RootTableManager<
     (GameSessionRow, $$GameSessionsTableReferences),
     GameSessionRow,
     PrefetchHooks Function({bool savedLocationsRefs})> {
-  $$GameSessionsTableTableManager(_$AppDatabase db, $GameSessionsTable table)
+  $$GameSessionsTableTableManager(_$PowDatabase db, $GameSessionsTable table)
       : super(TableManagerState(
           db: db,
           table: table,
@@ -3095,7 +3095,7 @@ class $$GameSessionsTableTableManager extends RootTableManager<
 }
 
 typedef $$GameSessionsTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $GameSessionsTable,
     GameSessionRow,
     $$GameSessionsTableFilterComposer,
@@ -3130,11 +3130,11 @@ typedef $$SavedLocationsTableUpdateCompanionBuilder = SavedLocationsCompanion
 });
 
 final class $$SavedLocationsTableReferences extends BaseReferences<
-    _$AppDatabase, $SavedLocationsTable, SavedLocationRow> {
+    _$PowDatabase, $SavedLocationsTable, SavedLocationRow> {
   $$SavedLocationsTableReferences(
       super.$_db, super.$_table, super.$_typedResult);
 
-  static $GameSessionsTable _sessionIdTable(_$AppDatabase db) =>
+  static $GameSessionsTable _sessionIdTable(_$PowDatabase db) =>
       db.gameSessions.createAlias($_aliasNameGenerator(
           db.savedLocations.sessionId, db.gameSessions.id));
 
@@ -3151,7 +3151,7 @@ final class $$SavedLocationsTableReferences extends BaseReferences<
 }
 
 class $$SavedLocationsTableFilterComposer
-    extends Composer<_$AppDatabase, $SavedLocationsTable> {
+    extends Composer<_$PowDatabase, $SavedLocationsTable> {
   $$SavedLocationsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -3199,7 +3199,7 @@ class $$SavedLocationsTableFilterComposer
 }
 
 class $$SavedLocationsTableOrderingComposer
-    extends Composer<_$AppDatabase, $SavedLocationsTable> {
+    extends Composer<_$PowDatabase, $SavedLocationsTable> {
   $$SavedLocationsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -3247,7 +3247,7 @@ class $$SavedLocationsTableOrderingComposer
 }
 
 class $$SavedLocationsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $SavedLocationsTable> {
+    extends Composer<_$PowDatabase, $SavedLocationsTable> {
   $$SavedLocationsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -3295,7 +3295,7 @@ class $$SavedLocationsTableAnnotationComposer
 }
 
 class $$SavedLocationsTableTableManager extends RootTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $SavedLocationsTable,
     SavedLocationRow,
     $$SavedLocationsTableFilterComposer,
@@ -3307,7 +3307,7 @@ class $$SavedLocationsTableTableManager extends RootTableManager<
     SavedLocationRow,
     PrefetchHooks Function({bool sessionId})> {
   $$SavedLocationsTableTableManager(
-      _$AppDatabase db, $SavedLocationsTable table)
+      _$PowDatabase db, $SavedLocationsTable table)
       : super(TableManagerState(
           db: db,
           table: table,
@@ -3402,7 +3402,7 @@ class $$SavedLocationsTableTableManager extends RootTableManager<
 }
 
 typedef $$SavedLocationsTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
+    _$PowDatabase,
     $SavedLocationsTable,
     SavedLocationRow,
     $$SavedLocationsTableFilterComposer,
@@ -3414,9 +3414,9 @@ typedef $$SavedLocationsTableProcessedTableManager = ProcessedTableManager<
     SavedLocationRow,
     PrefetchHooks Function({bool sessionId})>;
 
-class $AppDatabaseManager {
-  final _$AppDatabase _db;
-  $AppDatabaseManager(this._db);
+class $PowDatabaseManager {
+  final _$PowDatabase _db;
+  $PowDatabaseManager(this._db);
   $$MapTilesTableTableManager get mapTiles =>
       $$MapTilesTableTableManager(_db, _db.mapTiles);
   $$RoadZonesTableTableManager get roadZones =>

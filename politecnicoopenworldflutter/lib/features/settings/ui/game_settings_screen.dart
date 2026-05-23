@@ -39,7 +39,8 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     _showDatabase = ref.read(showDatabaseProvider);
     _freeMovement = ref.read(freeMovementProvider);
     _useRealLocation = ref.read(useRealLocationProvider);
-  }
+}
+
 
   Future<void> _save() async {
     final settingsRepository = ref.read(settingsRepositoryProvider);
@@ -53,7 +54,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     ref.read(freeMovementProvider.notifier).state = _freeMovement;
     ref.read(useRealLocationProvider.notifier).state = _useRealLocation;
 
-    await Future.wait([
+    await Future.wait<void>([
       settingsRepository.setMapProvider(_mapProvider),
       settingsRepository.setControlType(_controlType),
       settingsRepository.setInvertControls(_invertControls),
@@ -73,7 +74,6 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     );
     setState(() {});
   }
-
   void _reset() => setState(() => _loadFromProviders());
 
   @override
