@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Asegúrate de importar tus providers del mapa correctamente
-import '../state/map_providers.dart';
+// Importa tu provider real del mapa
+import '../../state/map_providers.dart';
 
 class MapStatusIndicator extends ConsumerWidget {
   const MapStatusIndicator({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Escuchamos los cambios del provider que controla tu MapRepository
     final mapState = ref.watch(mapStateProvider);
     final progress = mapState.progress;
 
@@ -16,27 +17,28 @@ class MapStatusIndicator extends ConsumerWidget {
     String text;
     Color color;
 
-    // Evaluamos el estado de tu WorldMapProvider
+    // Lógica para determinar qué mostrar basado en WorldMapProvider
     if (mapState.isLoading) {
+      // Si el texto de estado contiene 'Descargando', estamos bajando de Overpass
       if (progress.status.contains('Descargando')) {
-        // Tu MapRepository está haciendo fetch a Overpass
         icon = Icons.cloud_download;
-        text = 'Usando mapa en línea (Descarga en proceso... ${(progress.fraction * 100).toInt()}%)';
+        text = 'Descargando mundo... ${(progress.fraction * 100).toInt()}%';
         color = Colors.orangeAccent;
       } else {
-        // Está cargando desde la base de datos local (RoadZoneDao)
+        // Puede estar inicializando o leyendo desde la base de datos local (RoadZoneDao)
         icon = Icons.storage;
-        text = 'Verificando zona...';
+        text = progress.status; // Mostrará 'Cargando desde caché...'
         color = Colors.yellowAccent;
       }
     } else if (mapState.errorMessage != null) {
+      // Manejo de errores
       icon = Icons.error_outline;
-      text = 'Error de conexión';
+      text = 'Error de red';
       color = Colors.redAccent;
     } else {
-      // Si isLoading es false, la zona en la que estás parado ya está en caché
+      // Si no está cargando y no hay error, el mapa actual está en memoria/caché
       icon = Icons.cloud_done;
-      text = 'Zona actual descargada';
+      text = 'Zona Descargada';
       color = Colors.greenAccent;
     }
 
@@ -54,11 +56,7 @@ class MapStatusIndicator extends ConsumerWidget {
           const SizedBox(width: 8),
           Text(
             text,
-            style: const TextStyle(
-              color: Colors.white, 
-              fontSize: 12, 
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
         ],
       ),

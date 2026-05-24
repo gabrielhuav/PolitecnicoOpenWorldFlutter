@@ -14,6 +14,7 @@ import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
+import 'components/map_status_indicator.dart';
 
 import 'game_menu_screen.dart';
 
@@ -175,6 +176,16 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 ],
               ),
             ],
+          ),
+
+          // Inside the Stack children in world_map_screen.dart
+          Positioned(
+            top: 50,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: const MapStatusIndicator(),
+            ),
           ),
 
           // Botón menú

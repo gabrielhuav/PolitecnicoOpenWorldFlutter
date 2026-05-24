@@ -8,6 +8,8 @@ import 'world_map_provider.dart';
 
 export '../../../data/repository/map_repository_impl.dart';
 
+enum MapSyncStatus { online, downloading, offline }
+
 // ==========================================
 // 1. DATA SOURCES
 // ==========================================
@@ -38,4 +40,9 @@ final mapStateProvider = ChangeNotifierProvider<WorldMapProvider>((ref) {
   return WorldMapProvider(
     mapRepository: ref.read(mapRepositoryProvider),
   );
+});
+
+final mapSyncStatusProvider = StateProvider<MapSyncStatus>((ref) {
+  // Initialize with your default state
+  return MapSyncStatus.online;
 });
