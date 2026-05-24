@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+
 import '../../settings/state/game_settings_providers.dart';
 import 'location_providers.dart';
 
@@ -7,8 +10,21 @@ class PlayerMovementNotifier extends StateNotifier<LatLng> {
   final Ref ref;
   static const LatLng escomLocation = LatLng(19.5045, -99.1465);
 
-  /// Magnitud, en grados, que aplica un input de magnitud 1.0 a cada eje.
-  static const double stepSize = 0.00005;
+  /// Velocidad de caminata del jugador, en metros por segundo.
+  /// 1.8 m/s ≈ caminar rápido. Para que se sienta más ágil, sube a
+  /// 2.5 (jogging) o 4.0 (correr). El NPC persona se mueve a 1.4 m/s
+  /// (ver NpcSpawner._personSpeed), así que el jugador a 1.8 los
+  /// adelanta apenas.
+  static const double walkSpeedMetersPerSecond = 1.8;
+
+  /// Intervalo de tick de los controles. Coincide con
+  /// DPadControl._tickInterval y JoystickControl._tickInterval
+  /// (33 ms = ~30 Hz). Mantenlo sincronizado con esos archivos.
+  static const double _tickSeconds = 0.033;
+
+  /// Aproximación: metros por grado de latitud. Constante en la
+  /// Tierra (~111 km), independiente de la latitud.
+  static const double _metersPerLatDegree = 111000.0;
 
   PlayerMovementNotifier(this.ref) : super(escomLocation);
 
@@ -30,7 +46,6 @@ class PlayerMovementNotifier extends StateNotifier<LatLng> {
     if (position != null) {
       state = LatLng(position.latitude, position.longitude);
     } else {
-      // Si el GPS falla, volvemos a ESCOM para no dejar al jugador en el limbo
       state = escomLocation;
     }
   }
@@ -40,28 +55,33 @@ class PlayerMovementNotifier extends StateNotifier<LatLng> {
     return state;
   }
 
-  /// Movimiento en términos geográficos. `deltaLat = 1` empuja al norte;
-  /// `deltaLon = 1` empuja al este. Conservado para no romper el D-pad
-  /// actual; se eliminará cuando todos los controles usen [moveBy].
+  /// Movimiento en términos geográficos. Conservado por
+  /// compatibilidad; calcula el paso desde la misma velocidad real.
   void move(double deltaLat, double deltaLon) {
-    // Si estamos en modo GPS, quizás quieras bloquear el movimiento manual
-    // o dejar que el jugador se desplace desde su ubicación real.
+    final stepDeg = _legacyStepDegrees();
     state = LatLng(
-      state.latitude + (deltaLat * stepSize),
-      state.longitude + (deltaLon * stepSize),
+      state.latitude + (deltaLat * stepDeg),
+      state.longitude + (deltaLon * stepDeg),
     );
   }
 
-  /// Movimiento en términos de pantalla, alineado a un joystick estándar:
-  /// `dx > 0` empuja al este, `dy > 0` empuja al sur (mismo eje Y que la
-  /// UI). Recibe valores típicamente en `[-1.0, 1.0]`. Es la API que usarán
-  /// el nuevo D-pad y el joystick analógico.
+  /// Movimiento alineado a joystick. [dx], [dy] esperan magnitudes
+  /// en [-1, 1]. Convierte velocidad humana en m/s a desplazamiento
+  /// en grados según la latitud actual.
   void moveBy(double dx, double dy) {
+    final distanceMeters = walkSpeedMetersPerSecond * _tickSeconds;
+    final dLatDeg = (distanceMeters / _metersPerLatDegree) * (-dy);
+    final lonMetersPerDeg =
+        _metersPerLatDegree * math.cos(state.latitude * math.pi / 180);
+    final dLonDeg = (distanceMeters / lonMetersPerDeg) * dx;
     state = LatLng(
-      state.latitude - (dy * stepSize),
-      state.longitude + (dx * stepSize),
+      state.latitude + dLatDeg,
+      state.longitude + dLonDeg,
     );
   }
+
+  double _legacyStepDegrees() =>
+      walkSpeedMetersPerSecond * _tickSeconds / _metersPerLatDegree;
 }
 
 final playerMovementProvider =
