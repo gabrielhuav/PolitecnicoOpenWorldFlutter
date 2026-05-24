@@ -11,11 +11,8 @@ class PlayerMovementNotifier extends StateNotifier<LatLng> {
   static const LatLng escomLocation = LatLng(19.5045, -99.1465);
 
   /// Velocidad de caminata del jugador, en metros por segundo.
-  /// 1.8 m/s ≈ caminar rápido. Para que se sienta más ágil, sube a
-  /// 2.5 (jogging) o 4.0 (correr). El NPC persona se mueve a 1.4 m/s
-  /// (ver NpcSpawner._personSpeed), así que el jugador a 1.8 los
-  /// adelanta apenas.
-  static const double walkSpeedMetersPerSecond = 1.8;
+  /// Así que el jugador a 5.0 los adelanta apenas.
+  static const double walkSpeedMetersPerSecond = 5.0;
 
   /// Intervalo de tick de los controles. Coincide con
   /// DPadControl._tickInterval y JoystickControl._tickInterval

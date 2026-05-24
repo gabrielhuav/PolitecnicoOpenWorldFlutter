@@ -14,10 +14,18 @@ class NpcSpawnPlan {
 }
 
 class NpcSpawner {
-  static const double _spawnRadiusMeters = 800;
-  static const double _despawnRadiusMeters = 1700;
-  static const int _hardCap = 300;
+  /// Radio mínimo de spawn cuando no se conoce el viewport (primer
+  /// frame) o cuando el viewport es muy chico. En la práctica el
+  /// viewport real (1000-4000m según zoom) suele ser mayor.
+  static const double _baseSpawnRadiusMeters = 1000;
 
+  /// El despawn se hace a 1.4x el spawn efectivo, para que los NPCs
+  /// no parpadeen entrando y saliendo del cap, y para forzar que los
+  /// que quedaron atrás del jugador se eliminen pronto y dejen sitio
+  /// a nuevos delante.
+  static const double _despawnMultiplier = 1.25;
+
+  static const int _hardCap = 400;
   static const double _personSpeed = 1.4;
   static const double _carSpeed = 9.0;
 
@@ -28,10 +36,11 @@ class NpcSpawner {
 
   static const Distance _dist = Distance();
   static const double _nearbyWaysRefreshDistanceMeters = 60;
-  static const double _nearbyWaysRefreshViewportDeltaMeters = 30;
+  static const double _nearbyWaysRefreshRadiusDeltaMeters = 30;
+
   final Random _random;
   LatLng? _lastNearbyCenter;
-  double? _lastNearbyViewportRadius;
+  double? _lastNearbyRadius;
   List<MapWay>? _lastWaysRef;
   List<MapWay> _cachedNearbyWays = const [];
 
@@ -40,42 +49,41 @@ class NpcSpawner {
   bool _shouldRefreshNearbyWays(
     List<MapWay> ways,
     LatLng playerPos,
-    double viewportRadiusMeters,
+    double effectiveSpawnRadius,
   ) {
     if (_lastNearbyCenter == null ||
-        _lastNearbyViewportRadius == null ||
+        _lastNearbyRadius == null ||
         !identical(_lastWaysRef, ways)) {
       return true;
     }
     final movedMeters = _dist(_lastNearbyCenter!, playerPos);
-    final viewportDelta =
-        (_lastNearbyViewportRadius! - viewportRadiusMeters).abs();
+    final radiusDelta =
+        (_lastNearbyRadius! - effectiveSpawnRadius).abs();
     return movedMeters >= _nearbyWaysRefreshDistanceMeters ||
-        viewportDelta >= _nearbyWaysRefreshViewportDeltaMeters;
+        radiusDelta >= _nearbyWaysRefreshRadiusDeltaMeters;
   }
 
   List<MapWay> _getNearbyWays(
     List<MapWay> ways,
     LatLng playerPos,
-    double viewportRadiusMeters,
+    double effectiveSpawnRadius,
   ) {
-    if (_shouldRefreshNearbyWays(ways, playerPos, viewportRadiusMeters)) {
+    if (_shouldRefreshNearbyWays(ways, playerPos, effectiveSpawnRadius)) {
       final nearby = <MapWay>[];
       for (final w in ways) {
         if (w.nodes.length < 2) continue;
-        if (_wayMinDistance(w, playerPos) <= _spawnRadiusMeters) {
+        if (_wayMinDistance(w, playerPos) <= effectiveSpawnRadius) {
           nearby.add(w);
         }
       }
       _cachedNearbyWays = nearby;
       _lastNearbyCenter = playerPos;
-      _lastNearbyViewportRadius = viewportRadiusMeters;
+      _lastNearbyRadius = effectiveSpawnRadius;
       _lastWaysRef = ways;
     }
     return _cachedNearbyWays;
   }
 
-  /// Distancia mínima entre el jugador y cualquier nodo de la way.
   double _wayMinDistance(MapWay w, LatLng playerPos) {
     var best = double.infinity;
     for (final n in w.nodes) {
@@ -91,34 +99,54 @@ class NpcSpawner {
     required List<MapWay> ways,
     required LatLng playerPos,
     required int desiredCount,
-    // Limita el spawn a un área específica, puedes usar esto.
     double viewportRadiusMeters = 0,
   }) {
-    final effectiveDespawnRadiusMeters = viewportRadiusMeters > 0
-        ? max(viewportRadiusMeters, _spawnRadiusMeters)
-        : _despawnRadiusMeters;
+    // Radio efectivo: lo mayor entre el viewport publicado por la
+    // pantalla y el baseline. Si la cámara está muy zoom-in, el
+    // baseline gana y garantiza algo de relleno cercano.
+    final effectiveSpawnRadius = viewportRadiusMeters > 0
+        ? max(viewportRadiusMeters, _baseSpawnRadiusMeters)
+        : _baseSpawnRadiusMeters;
+    final effectiveDespawnRadius =
+        effectiveSpawnRadius * _despawnMultiplier;
 
+    // Marcar para despawn lo que esté fuera del anillo de despawn.
     final toDespawn = <String>[];
     for (final npc in current) {
       final pos = LatLng(npc.location.latitude, npc.location.longitude);
-      if (_dist(pos, playerPos) > effectiveDespawnRadiusMeters) {
+      if (_dist(pos, playerPos) > effectiveDespawnRadius) {
         toDespawn.add(npc.id);
       }
     }
 
-    final aliveAfter = current.length - toDespawn.length;
+    // El cap (densidad objetivo) aplica SOLO a la zona core, el spawn
+    // radius. Los NPCs entre spawn y despawn radius siguen vivos pero
+    // no bloquean la creación de nuevos hacia donde mira el jugador.
+    // Esto resuelve el síntoma "los NPCs se quedan atrás": cuando
+    // avanzas, los rezagados quedan en el anillo de buffer pero el cap
+    // se libera y aparecen nuevos delante.
+    final toDespawnIds = toDespawn.toSet();
+    var aliveInSpawnRadius = 0;
+    for (final npc in current) {
+      if (toDespawnIds.contains(npc.id)) continue;
+      final pos = LatLng(npc.location.latitude, npc.location.longitude);
+      if (_dist(pos, playerPos) <= effectiveSpawnRadius) {
+        aliveInSpawnRadius++;
+      }
+    }
+
     final cap = desiredCount.clamp(0, _hardCap).toInt();
-    final needed = (cap - aliveAfter).clamp(0, _hardCap).toInt();
+    final needed = (cap - aliveInSpawnRadius).clamp(0, _hardCap).toInt();
     if (needed == 0 || ways.isEmpty) {
       return NpcSpawnPlan(toSpawn: const [], toDespawnIds: toDespawn);
     }
 
-    final nearby = _getNearbyWays(ways, playerPos, viewportRadiusMeters);
+    final nearby = _getNearbyWays(ways, playerPos, effectiveSpawnRadius);
     if (nearby.isEmpty) {
       return NpcSpawnPlan(toSpawn: const [], toDespawnIds: toDespawn);
     }
 
-    // Pre-particiona las ways elegibles según el tipo permitido.
+    // Particionar ways elegibles por tipo (filtro introducido en PR1).
     final carWays = nearby.where((w) => w.isForCars).toList();
     final peopleWays = nearby.where((w) => w.isForPeople).toList();
     if (carWays.isEmpty && peopleWays.isEmpty) {
@@ -128,9 +156,6 @@ class NpcSpawner {
     final toSpawn = <Npc>[];
     for (int i = 0; i < needed; i++) {
       final wantsCar = _random.nextDouble() < 0.25;
-
-      // Si quiere coche pero no hay vías para coches cercanas, degrada a
-      // persona (y viceversa). Si ninguno tiene ways, salta este spawn.
       final type = wantsCar
           ? (carWays.isNotEmpty ? NpcType.car : NpcType.person)
           : (peopleWays.isNotEmpty ? NpcType.person : NpcType.car);
