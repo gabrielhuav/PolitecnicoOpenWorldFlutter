@@ -4,11 +4,11 @@ import 'package:politecnicoopenworldflutter/data/local/pow_database.dart';
 import 'package:drift/native.dart';
 
 void main() {
-  late AppDatabase database;
+  late PowDatabase database;
 
   setUp(() {
     // IMPORTANTE: Usamos .memory() para que el test no busque carpetas en Windows
-    database = AppDatabase(NativeDatabase.memory());
+    database = PowDatabase(NativeDatabase.memory());
   });
 
   tearDown(() async {

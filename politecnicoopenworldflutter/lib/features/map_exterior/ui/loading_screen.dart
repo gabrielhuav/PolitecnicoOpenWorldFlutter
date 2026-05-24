@@ -7,10 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../ui/theme/app_theme.dart';       
 import '../../../ui/theme/theme_extensions.dart'; 
 import '../../../core/utils/app_logger.dart';
-import '../state/location_providers.dart';
 import '../../../core/utils/providers.dart';
-import '../state/session_providers.dart';
-import '../../settings/state/game_settings_providers.dart';
 import '../../../data/location/location_permission_status.dart';
 import '../../main_menu/state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
@@ -126,10 +123,12 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
 
       // Cargar el mapa centrado en esa posición para AMBOS casos (Nueva o Reanudada).
       _setStatus('Descargando calles del mundo...');
-      await ref.read(mapStateProvider).loadInitialMapData(
-            initialLat: targetCoords.latitude,
-            initialLon: targetCoords.longitude,
-          );
+        await ref.read(mapStateProvider).loadInitialMapData(
+              initialLat: targetCoords.latitude,
+              initialLon: targetCoords.longitude,
+              radiusMeters: 5000,
+        
+            );
 
       // Colocar al jugador.
       ref.read(playerMovementProvider.notifier).teleport(targetCoords);
@@ -247,7 +246,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                       child: Padding(
                         padding: const EdgeInsets.all(18.0),
                         child: CircularProgressIndicator(
-                          color: theme.accentSecondary, 
+                          color: theme.accentSecondary,
                           strokeWidth: 3,
                         ),
                       ),
@@ -257,11 +256,13 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
                   Text(
                     _statusText,
                     style: TextStyle(
-                      color: theme.textSecondary, 
+                      color: theme.textSecondary,
                       fontSize: 14,
                       letterSpacing: 0.5,
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  _MapDownloadProgress(theme: theme),
                 ] else ...[
                   const Icon(Icons.error_outline, color: Colors.redAccent, size: 56),
                   const SizedBox(height: 12),
@@ -358,6 +359,76 @@ class _TipCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapDownloadProgress extends ConsumerWidget {
+  final AppTheme theme;
+  const _MapDownloadProgress({required this.theme});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress = ref.watch(mapStateProvider).progress;
+    if (progress.totalCells == 0) return const SizedBox.shrink();
+
+    final percent = (progress.fraction * 100).clamp(0, 100).toStringAsFixed(0);
+    final cellsDone = progress.cachedCells + progress.downloadedCells;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 360),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.surfaceOverlay,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.borderSubtle, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Mapa local',
+                style: TextStyle(
+                  color: theme.textTertiary,
+                  fontSize: 11,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '$percent%',
+                style: TextStyle(
+                  color: theme.accentSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress.fraction.clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: theme.borderSubtle,
+              valueColor: AlwaysStoppedAnimation<Color>(theme.accentSecondary),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Celdas $cellsDone/${progress.totalCells} · '
+            'Batch ${progress.currentBatchIndex}/${progress.totalBatches}',
+            style: TextStyle(
+              color: theme.textTertiary,
+              fontSize: 11,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

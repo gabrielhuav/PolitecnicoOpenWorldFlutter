@@ -118,12 +118,26 @@ class NpcSpawner {
       return NpcSpawnPlan(toSpawn: const [], toDespawnIds: toDespawn);
     }
 
+    // Pre-particiona las ways elegibles según el tipo permitido.
+    final carWays = nearby.where((w) => w.isForCars).toList();
+    final peopleWays = nearby.where((w) => w.isForPeople).toList();
+    if (carWays.isEmpty && peopleWays.isEmpty) {
+      return NpcSpawnPlan(toSpawn: const [], toDespawnIds: toDespawn);
+    }
+
     final toSpawn = <Npc>[];
     for (int i = 0; i < needed; i++) {
-      final way = nearby[_random.nextInt(nearby.length)];
       final wantsCar = _random.nextDouble() < 0.25;
-      final type =
-          (wantsCar && way.isForCars) ? NpcType.car : NpcType.person;
+
+      // Si quiere coche pero no hay vías para coches cercanas, degrada a
+      // persona (y viceversa). Si ninguno tiene ways, salta este spawn.
+      final type = wantsCar
+          ? (carWays.isNotEmpty ? NpcType.car : NpcType.person)
+          : (peopleWays.isNotEmpty ? NpcType.person : NpcType.car);
+
+      final pool = type == NpcType.car ? carWays : peopleWays;
+      if (pool.isEmpty) continue;
+      final way = pool[_random.nextInt(pool.length)];
 
       final startIdx = _random.nextInt(way.nodes.length - 1);
       final startNode = way.nodes[startIdx];

@@ -1,33 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/local/dao/road_zone_dao.dart';
 import '../../../data/local/pow_database.dart';
-import '../../../data/repository/map_repository_impl.dart';
 import '../../../data/network/overpass_repository.dart';
+import '../../../data/repository/map_repository_impl.dart';
 import 'world_map_provider.dart';
-// lib/data/repository/map_repository.dart
+
 export '../../../data/repository/map_repository_impl.dart';
 
 // ==========================================
-// 1. DATA SOURCES (Fuentes de datos)
+// 1. DATA SOURCES
 // ==========================================
 final localDbProvider = Provider((ref) => PowDatabase());
 final remoteClientProvider = Provider((ref) => OverpassRepository());
 
 // ==========================================
-// 2. REPOSITORIOS
+// 2. DAO DE CACHÉ DE CALLES
 // ==========================================
-final mapRepositoryProvider = Provider((ref) {
-  // Aquí Riverpod inyecta automáticamente la DB y el Cliente
+final roadZoneDaoProvider = Provider<RoadZoneDao>((ref) {
+  return RoadZoneDao(ref.read(localDbProvider));
+});
+
+// ==========================================
+// 3. REPOSITORIO
+// ==========================================
+final mapRepositoryProvider = Provider<MapRepository>((ref) {
   return MapRepository(
-    ref.read(localDbProvider),
+    ref.read(roadZoneDaoProvider),
     ref.read(remoteClientProvider),
   );
 });
 
 // ==========================================
-// 3. ESTADOS GLOBALES DE LA UI
+// 4. ESTADO DE LA UI
 // ==========================================
-// Usamos ChangeNotifierProvider para no tener que reescribir el WorldMapProvider actual
 final mapStateProvider = ChangeNotifierProvider<WorldMapProvider>((ref) {
   return WorldMapProvider(
     mapRepository: ref.read(mapRepositoryProvider),

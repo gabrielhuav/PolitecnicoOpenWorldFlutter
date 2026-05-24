@@ -121,9 +121,10 @@ class NpcMovementEngine {
     for (final w in allWays) {
       if (w.id == current.id) continue;
       if (w.nodes.length < 2) continue;
-      // Los coches sólo pueden continuar por ways de coches.
-      // Las personas aceptan cualquier way con un nodo compartido.
+    // Los coches sólo pueden continuar por ways de coches.
+    // Las personas sólo pueden continuar por ways peatonales.
       if (npcType == NpcType.car && !w.isForCars) continue;
+      if (npcType == NpcType.person && !w.isForPeople) continue;
       if (w.nodes.any((n) => n.id == pivotNodeId)) {
         candidates.add(w);
       }

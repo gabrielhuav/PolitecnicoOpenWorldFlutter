@@ -1,50 +1,57 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/utils/app_logger.dart';
-// Importamos las entidades del dominio
+import '../../../data/repository/map_repository_impl.dart';
 import '../../../domain/models/map_node.dart';
 import '../../../domain/models/map_way.dart';
-// Importamos el repositorio
-import '../../../data/repository/map_repository_impl.dart';
 
 class WorldMapProvider extends ChangeNotifier {
-  // Inyectamos el repositorio que se encargará de decidir si usa Overpass o la DB local
   final MapRepository _mapRepository;
 
   WorldMapProvider({required MapRepository mapRepository})
       : _mapRepository = mapRepository;
 
-  // ==========================================
-  // ESTADO INTERNO DEL MAPA
-  // ==========================================
+  // Estado del mapa
   List<MapNode> _nodes = [];
   List<MapWay> _ways = [];
   bool _isLoading = false;
   String? _errorMessage;
 
-  // ==========================================
-  // GETTERS (Para que la UI lea los datos de forma segura)
-  // ==========================================
+  // Progreso reactivo
+  MapLoadProgress _progress = MapLoadProgress.idle();
+
   List<MapNode> get nodes => _nodes;
   List<MapWay> get ways => _ways;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  MapLoadProgress get progress => _progress;
 
-  // ==========================================
-  // LÓGICA PRINCIPAL
-  // ==========================================
-
-  /// Descarga o lee los datos iniciales del mapa.
-  /// Esta es la función que se llama desde el StartMenuScreen.
+  /// Carga inicial. [radiusMeters] es el radio total a cubrir; el
+  /// repositorio decide cuántos batches Overpass usa.
   Future<void> loadInitialMapData({
     double initialLat = 19.5045,
     double initialLon = -99.1465,
+    double radiusMeters = 5000,
   }) async {
-    AppLogger.log.i('loadInitialMapData: centro=($initialLat, $initialLon)');
+    AppLogger.log.i(
+      'loadInitialMapData: centro=($initialLat, $initialLon) '
+      'radio=${radiusMeters}m',
+    );
     _isLoading = true;
     _errorMessage = null;
+    _progress = MapLoadProgress.idle();
     notifyListeners();
+
     try {
-      final ways = await _mapRepository.getRoadsForLocation(initialLat, initialLon);
+      final ways = await _mapRepository.getRoadsForLocation(
+        initialLat,
+        initialLon,
+        radiusMeters: radiusMeters,
+        onProgress: (p) {
+          _progress = p;
+          notifyListeners();
+        },
+      );
       _ways = ways;
       _nodes = ways.expand((w) => w.nodes).toList();
     } catch (e, stack) {
@@ -55,12 +62,5 @@ class WorldMapProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  /// Ejemplo de función adicional: Refrescar una zona específica si el jugador se mueve mucho
-  Future<void> loadChunk(
-      double latitude, double longitude, double radius) async {
-    // Aquí implementarías la lógica para descargar un nuevo "pedazo" de mapa
-    // usando overpass_repository.dart a través del repositorio.
   }
 }
