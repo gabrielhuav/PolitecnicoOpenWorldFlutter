@@ -7,20 +7,12 @@ import '../map_way.dart';
 import '../npc.dart';
 import '../npc_enums.dart';
 
-/// Motor de movimiento puro: a partir de un [Npc] y un delta temporal,
-/// devuelve un nuevo [Npc] avanzado. No mantiene estado interno.
-///
-/// Lógica básica por paso:
-///  1. Avanzar hacia el nodo objetivo dentro de la way actual.
-///  2. Si se alcanza el nodo, saltar al siguiente según [moveDirection].
-///  3. Si se acaba la way, intentar saltar a otra way conectada (mismo nodo
-///     en el extremo); si no hay conexión, invertir la dirección.
 class NpcMovementEngine {
   static const Distance _dist = Distance();
 
-  /// Avanza un NPC un paso de simulación. [allWays] se usa sólo para
-  /// resolver continuaciones cuando llega al final de su way.
-  static Npc step(
+  /// Avanza un NPC un paso de simulación. Devuelve `null` si el NPC
+  /// debe despawnear (coche atascado en oneway sin salida).
+  static Npc? step(
     Npc npc,
     double dtSeconds,
     List<MapWay> allWays,
@@ -32,7 +24,6 @@ class NpcMovementEngine {
     var working = npc;
     var remaining = working.speed * dtSeconds;
 
-    // Permitimos cruzar hasta 4 nodos por tick para deltas largos.
     for (int i = 0; i < 4 && remaining > 0; i++) {
       final w = working.currentWay;
       if (w == null || w.nodes.length < 2) break;
@@ -48,9 +39,13 @@ class NpcMovementEngine {
 
       if (distToTarget <= remaining) {
         working = working.copyWith(
-          location: GeoLocation(latitude: target.lat, longitude: target.lon),
+          location:
+              GeoLocation(latitude: target.lat, longitude: target.lon),
         );
-        working = _advanceToNextNode(working, w, allWays, random);
+        final advanced =
+            _advanceToNextNode(working, w, allWays, random);
+        if (advanced == null) return null;
+        working = advanced;
         remaining -= distToTarget;
       } else {
         final bearing = _dist.bearing(current, targetLatLng);
@@ -68,7 +63,7 @@ class NpcMovementEngine {
     return working;
   }
 
-  static Npc _advanceToNextNode(
+  static Npc? _advanceToNextNode(
     Npc npc,
     MapWay way,
     List<MapWay> allWays,
@@ -95,7 +90,12 @@ class NpcMovementEngine {
       );
     }
 
-    // Callejón sin salida: media vuelta.
+    // Sin conexión: si el coche está en una way oneway, no puede
+    // dar media vuelta. Despawn.
+    if (npc.type == NpcType.car && way.direction != WayDirection.both) {
+      return null;
+    }
+    // Para todo lo demás (personas o calles de doble sentido), reversa.
     final reversedDirection = -npc.moveDirection;
     final reversedTarget = (npc.targetNodeIndex + reversedDirection)
         .clamp(0, way.nodes.length - 1);
@@ -117,34 +117,46 @@ class NpcMovementEngine {
     final pivotNodeId =
         atEnd ? current.nodes.last.id : current.nodes.first.id;
 
-    final candidates = <MapWay>[];
+    final candidates = <_Connection>[];
     for (final w in allWays) {
       if (w.id == current.id) continue;
       if (w.nodes.length < 2) continue;
-    // Los coches sólo pueden continuar por ways de coches.
-    // Las personas sólo pueden continuar por ways peatonales.
       if (npcType == NpcType.car && !w.isForCars) continue;
       if (npcType == NpcType.person && !w.isForPeople) continue;
-      if (w.nodes.any((n) => n.id == pivotNodeId)) {
-        candidates.add(w);
+
+      final pivotIdx = w.nodes.indexWhere((n) => n.id == pivotNodeId);
+      if (pivotIdx == -1) continue;
+
+      // Direcciones posibles de entrada por ese pivote:
+      //   pivote en nodo 0           → solo dirección +1
+      //   pivote en último nodo      → solo dirección -1
+      //   pivote intermedio          → ambas
+      final possibleDirs = <int>[];
+      if (pivotIdx == 0) {
+        possibleDirs.add(1);
+      } else if (pivotIdx == w.nodes.length - 1) {
+        possibleDirs.add(-1);
+      } else {
+        possibleDirs.addAll([1, -1]);
+      }
+
+      for (final dir in possibleDirs) {
+        // Coches respetan oneway. Personas no.
+        if (npcType == NpcType.car) {
+          if (w.direction == WayDirection.forward && dir != 1) continue;
+          if (w.direction == WayDirection.backward && dir != -1) continue;
+        }
+        final initialTarget = pivotIdx + dir;
+        if (initialTarget < 0 || initialTarget >= w.nodes.length) continue;
+        candidates.add(_Connection(
+          way: w,
+          initialTargetIndex: initialTarget,
+          direction: dir,
+        ));
       }
     }
     if (candidates.isEmpty) return null;
-
-    final chosen = candidates[random.nextInt(candidates.length)];
-    final pivotIdx = chosen.nodes.indexWhere((n) => n.id == pivotNodeId);
-    if (pivotIdx == -1) return null;
-
-    final newDirection = pivotIdx == 0 ? 1 : -1;
-    final initialTarget = pivotIdx + newDirection;
-    if (initialTarget < 0 || initialTarget >= chosen.nodes.length) {
-      return null;
-    }
-    return _Connection(
-      way: chosen,
-      initialTargetIndex: initialTarget,
-      direction: newDirection,
-    );
+    return candidates[random.nextInt(candidates.length)];
   }
 }
 

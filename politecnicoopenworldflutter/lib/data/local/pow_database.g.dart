@@ -578,9 +578,17 @@ class $RoadWaysTable extends RoadWays with TableInfo<$RoadWaysTable, RoadWay> {
       requiredDuringInsert: true,
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("is_for_people" IN (0, 1))'));
+  static const VerificationMeta _directionMeta =
+      const VerificationMeta('direction');
+  @override
+  late final GeneratedColumn<String> direction = GeneratedColumn<String>(
+      'direction', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('both'));
   @override
   List<GeneratedColumn> get $columns =>
-      [wayId, cellKey, isForCars, isForPeople];
+      [wayId, cellKey, isForCars, isForPeople, direction];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -619,6 +627,10 @@ class $RoadWaysTable extends RoadWays with TableInfo<$RoadWaysTable, RoadWay> {
     } else if (isInserting) {
       context.missing(_isForPeopleMeta);
     }
+    if (data.containsKey('direction')) {
+      context.handle(_directionMeta,
+          direction.isAcceptableOrUnknown(data['direction']!, _directionMeta));
+    }
     return context;
   }
 
@@ -636,6 +648,8 @@ class $RoadWaysTable extends RoadWays with TableInfo<$RoadWaysTable, RoadWay> {
           .read(DriftSqlType.bool, data['${effectivePrefix}is_for_cars'])!,
       isForPeople: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_for_people'])!,
+      direction: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}direction'])!,
     );
   }
 
@@ -650,11 +664,18 @@ class RoadWay extends DataClass implements Insertable<RoadWay> {
   final String cellKey;
   final bool isForCars;
   final bool isForPeople;
+
+  /// Direccionalidad de la way según OSM:
+  ///   'both'     → sin restricción (default)
+  ///   'forward'  → solo en el sentido de los nodos
+  ///   'backward' → solo en el sentido inverso
+  final String direction;
   const RoadWay(
       {required this.wayId,
       required this.cellKey,
       required this.isForCars,
-      required this.isForPeople});
+      required this.isForPeople,
+      required this.direction});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -662,6 +683,7 @@ class RoadWay extends DataClass implements Insertable<RoadWay> {
     map['cell_key'] = Variable<String>(cellKey);
     map['is_for_cars'] = Variable<bool>(isForCars);
     map['is_for_people'] = Variable<bool>(isForPeople);
+    map['direction'] = Variable<String>(direction);
     return map;
   }
 
@@ -671,6 +693,7 @@ class RoadWay extends DataClass implements Insertable<RoadWay> {
       cellKey: Value(cellKey),
       isForCars: Value(isForCars),
       isForPeople: Value(isForPeople),
+      direction: Value(direction),
     );
   }
 
@@ -682,6 +705,7 @@ class RoadWay extends DataClass implements Insertable<RoadWay> {
       cellKey: serializer.fromJson<String>(json['cellKey']),
       isForCars: serializer.fromJson<bool>(json['isForCars']),
       isForPeople: serializer.fromJson<bool>(json['isForPeople']),
+      direction: serializer.fromJson<String>(json['direction']),
     );
   }
   @override
@@ -692,16 +716,22 @@ class RoadWay extends DataClass implements Insertable<RoadWay> {
       'cellKey': serializer.toJson<String>(cellKey),
       'isForCars': serializer.toJson<bool>(isForCars),
       'isForPeople': serializer.toJson<bool>(isForPeople),
+      'direction': serializer.toJson<String>(direction),
     };
   }
 
   RoadWay copyWith(
-          {int? wayId, String? cellKey, bool? isForCars, bool? isForPeople}) =>
+          {int? wayId,
+          String? cellKey,
+          bool? isForCars,
+          bool? isForPeople,
+          String? direction}) =>
       RoadWay(
         wayId: wayId ?? this.wayId,
         cellKey: cellKey ?? this.cellKey,
         isForCars: isForCars ?? this.isForCars,
         isForPeople: isForPeople ?? this.isForPeople,
+        direction: direction ?? this.direction,
       );
   RoadWay copyWithCompanion(RoadWaysCompanion data) {
     return RoadWay(
@@ -710,6 +740,7 @@ class RoadWay extends DataClass implements Insertable<RoadWay> {
       isForCars: data.isForCars.present ? data.isForCars.value : this.isForCars,
       isForPeople:
           data.isForPeople.present ? data.isForPeople.value : this.isForPeople,
+      direction: data.direction.present ? data.direction.value : this.direction,
     );
   }
 
@@ -719,13 +750,15 @@ class RoadWay extends DataClass implements Insertable<RoadWay> {
           ..write('wayId: $wayId, ')
           ..write('cellKey: $cellKey, ')
           ..write('isForCars: $isForCars, ')
-          ..write('isForPeople: $isForPeople')
+          ..write('isForPeople: $isForPeople, ')
+          ..write('direction: $direction')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(wayId, cellKey, isForCars, isForPeople);
+  int get hashCode =>
+      Object.hash(wayId, cellKey, isForCars, isForPeople, direction);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -733,7 +766,8 @@ class RoadWay extends DataClass implements Insertable<RoadWay> {
           other.wayId == this.wayId &&
           other.cellKey == this.cellKey &&
           other.isForCars == this.isForCars &&
-          other.isForPeople == this.isForPeople);
+          other.isForPeople == this.isForPeople &&
+          other.direction == this.direction);
 }
 
 class RoadWaysCompanion extends UpdateCompanion<RoadWay> {
@@ -741,12 +775,14 @@ class RoadWaysCompanion extends UpdateCompanion<RoadWay> {
   final Value<String> cellKey;
   final Value<bool> isForCars;
   final Value<bool> isForPeople;
+  final Value<String> direction;
   final Value<int> rowid;
   const RoadWaysCompanion({
     this.wayId = const Value.absent(),
     this.cellKey = const Value.absent(),
     this.isForCars = const Value.absent(),
     this.isForPeople = const Value.absent(),
+    this.direction = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RoadWaysCompanion.insert({
@@ -754,6 +790,7 @@ class RoadWaysCompanion extends UpdateCompanion<RoadWay> {
     required String cellKey,
     required bool isForCars,
     required bool isForPeople,
+    this.direction = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : wayId = Value(wayId),
         cellKey = Value(cellKey),
@@ -764,6 +801,7 @@ class RoadWaysCompanion extends UpdateCompanion<RoadWay> {
     Expression<String>? cellKey,
     Expression<bool>? isForCars,
     Expression<bool>? isForPeople,
+    Expression<String>? direction,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -771,6 +809,7 @@ class RoadWaysCompanion extends UpdateCompanion<RoadWay> {
       if (cellKey != null) 'cell_key': cellKey,
       if (isForCars != null) 'is_for_cars': isForCars,
       if (isForPeople != null) 'is_for_people': isForPeople,
+      if (direction != null) 'direction': direction,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -780,12 +819,14 @@ class RoadWaysCompanion extends UpdateCompanion<RoadWay> {
       Value<String>? cellKey,
       Value<bool>? isForCars,
       Value<bool>? isForPeople,
+      Value<String>? direction,
       Value<int>? rowid}) {
     return RoadWaysCompanion(
       wayId: wayId ?? this.wayId,
       cellKey: cellKey ?? this.cellKey,
       isForCars: isForCars ?? this.isForCars,
       isForPeople: isForPeople ?? this.isForPeople,
+      direction: direction ?? this.direction,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -805,6 +846,9 @@ class RoadWaysCompanion extends UpdateCompanion<RoadWay> {
     if (isForPeople.present) {
       map['is_for_people'] = Variable<bool>(isForPeople.value);
     }
+    if (direction.present) {
+      map['direction'] = Variable<String>(direction.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -818,6 +862,7 @@ class RoadWaysCompanion extends UpdateCompanion<RoadWay> {
           ..write('cellKey: $cellKey, ')
           ..write('isForCars: $isForCars, ')
           ..write('isForPeople: $isForPeople, ')
+          ..write('direction: $direction, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2386,6 +2431,7 @@ typedef $$RoadWaysTableCreateCompanionBuilder = RoadWaysCompanion Function({
   required String cellKey,
   required bool isForCars,
   required bool isForPeople,
+  Value<String> direction,
   Value<int> rowid,
 });
 typedef $$RoadWaysTableUpdateCompanionBuilder = RoadWaysCompanion Function({
@@ -2393,6 +2439,7 @@ typedef $$RoadWaysTableUpdateCompanionBuilder = RoadWaysCompanion Function({
   Value<String> cellKey,
   Value<bool> isForCars,
   Value<bool> isForPeople,
+  Value<String> direction,
   Value<int> rowid,
 });
 
@@ -2434,6 +2481,9 @@ class $$RoadWaysTableFilterComposer
   ColumnFilters<bool> get isForPeople => $composableBuilder(
       column: $table.isForPeople, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get direction => $composableBuilder(
+      column: $table.direction, builder: (column) => ColumnFilters(column));
+
   $$RoadZonesTableFilterComposer get cellKey {
     final $$RoadZonesTableFilterComposer composer = $composerBuilder(
         composer: this,
@@ -2473,6 +2523,9 @@ class $$RoadWaysTableOrderingComposer
   ColumnOrderings<bool> get isForPeople => $composableBuilder(
       column: $table.isForPeople, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get direction => $composableBuilder(
+      column: $table.direction, builder: (column) => ColumnOrderings(column));
+
   $$RoadZonesTableOrderingComposer get cellKey {
     final $$RoadZonesTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -2511,6 +2564,9 @@ class $$RoadWaysTableAnnotationComposer
 
   GeneratedColumn<bool> get isForPeople => $composableBuilder(
       column: $table.isForPeople, builder: (column) => column);
+
+  GeneratedColumn<String> get direction =>
+      $composableBuilder(column: $table.direction, builder: (column) => column);
 
   $$RoadZonesTableAnnotationComposer get cellKey {
     final $$RoadZonesTableAnnotationComposer composer = $composerBuilder(
@@ -2560,6 +2616,7 @@ class $$RoadWaysTableTableManager extends RootTableManager<
             Value<String> cellKey = const Value.absent(),
             Value<bool> isForCars = const Value.absent(),
             Value<bool> isForPeople = const Value.absent(),
+            Value<String> direction = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               RoadWaysCompanion(
@@ -2567,6 +2624,7 @@ class $$RoadWaysTableTableManager extends RootTableManager<
             cellKey: cellKey,
             isForCars: isForCars,
             isForPeople: isForPeople,
+            direction: direction,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2574,6 +2632,7 @@ class $$RoadWaysTableTableManager extends RootTableManager<
             required String cellKey,
             required bool isForCars,
             required bool isForPeople,
+            Value<String> direction = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               RoadWaysCompanion.insert(
@@ -2581,6 +2640,7 @@ class $$RoadWaysTableTableManager extends RootTableManager<
             cellKey: cellKey,
             isForCars: isForCars,
             isForPeople: isForPeople,
+            direction: direction,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

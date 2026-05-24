@@ -62,10 +62,11 @@ class NpcAiCoordinator {
     final updated = <Npc>[];
     for (final npc in _npcs) {
       if (toDespawnIds.contains(npc.id)) continue;
-      updated.add(NpcMovementEngine.step(npc, dtSeconds, _ways, _random));
+      final stepped = NpcMovementEngine.step(npc, dtSeconds, _ways, _random);
+      if (stepped != null) updated.add(stepped);
     }
     updated.addAll(plan.toSpawn);
-
+    
     _npcs = updated;
     return _npcs;
   }

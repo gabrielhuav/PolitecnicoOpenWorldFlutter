@@ -79,6 +79,7 @@ class RoadZoneDao {
               nodes: nodesByWay[w.wayId] ?? const [],
               isForCars: w.isForCars,
               isForPeople: w.isForPeople,
+              direction: WayDirection.fromStorage(w.direction),
             ))
         .where((w) => w.nodes.isNotEmpty)
         .toList(growable: false);
@@ -152,6 +153,7 @@ class RoadZoneDao {
             cellKey: entry.key,
             isForCars: w.isForCars,
             isForPeople: w.isForPeople,
+            direction: Value(w.direction.storageValue),
           ));
           for (var i = 0; i < w.nodes.length; i++) {
             final n = w.nodes[i];

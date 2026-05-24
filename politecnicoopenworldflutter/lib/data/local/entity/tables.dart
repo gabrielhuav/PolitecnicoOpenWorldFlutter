@@ -25,9 +25,17 @@ class RoadZones extends Table {
 // Equivalente a RoadWayEntity
 class RoadWays extends Table {
   IntColumn get wayId => integer()();
-  TextColumn get cellKey => text().references(RoadZones, #cellKey, onDelete: KeyAction.cascade)();
+  TextColumn get cellKey =>
+      text().references(RoadZones, #cellKey, onDelete: KeyAction.cascade)();
   BoolColumn get isForCars => boolean()();
   BoolColumn get isForPeople => boolean()();
+
+  /// Direccionalidad de la way según OSM:
+  ///   'both'     → sin restricción (default)
+  ///   'forward'  → solo en el sentido de los nodos
+  ///   'backward' → solo en el sentido inverso
+  TextColumn get direction =>
+      text().withDefault(const Constant('both'))();
 
   @override
   Set<Column> get primaryKey => {wayId, cellKey};

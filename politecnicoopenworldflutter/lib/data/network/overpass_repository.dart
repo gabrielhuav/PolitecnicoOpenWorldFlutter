@@ -150,6 +150,7 @@ out skel qt;
         nodes: wayNodes,
         isForCars: _classifyCars(highway, tags),
         isForPeople: _classifyPeople(highway, tags),
+        direction: _classifyDirection(tags),
       ));
     }
 
@@ -179,4 +180,15 @@ out skel qt;
     if (access == 'no' || access == 'private') return false;
     return true;
   }
+}
+
+WayDirection _classifyDirection(Map<String, dynamic> tags) {
+  final oneway = tags['oneway']?.toString().toLowerCase();
+  if (oneway == 'yes' || oneway == '1' || oneway == 'true') {
+    return WayDirection.forward;
+  }
+  if (oneway == '-1' || oneway == 'reverse') {
+    return WayDirection.backward;
+  }
+  return WayDirection.both;
 }

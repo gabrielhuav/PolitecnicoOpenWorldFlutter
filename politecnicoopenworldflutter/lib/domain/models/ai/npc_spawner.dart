@@ -14,18 +14,16 @@ class NpcSpawnPlan {
 }
 
 class NpcSpawner {
-  /// Radio mínimo de spawn cuando no se conoce el viewport (primer
-  /// frame) o cuando el viewport es muy chico. En la práctica el
-  /// viewport real (1000-4000m según zoom) suele ser mayor.
+  /// Radio mínimo de spawn cuando no se conoce el viewport.
   static const double _baseSpawnRadiusMeters = 1000;
 
-  /// El despawn se hace a 1.4x el spawn efectivo, para que los NPCs
-  /// no parpadeen entrando y saliendo del cap, y para forzar que los
-  /// que quedaron atrás del jugador se eliminen pronto y dejen sitio
-  /// a nuevos delante.
+  /// El despawn se hace a 1.25x el spawn efectivo: anillo de buffer
+  /// chico, NPCs detrás del jugador desaparecen pronto y dejan sitio.
   static const double _despawnMultiplier = 1.25;
 
+  /// Tope absoluto; permite cap + buffer lleno sin colapsar render.
   static const int _hardCap = 400;
+
   static const double _personSpeed = 1.4;
   static const double _carSpeed = 9.0;
 
@@ -57,8 +55,7 @@ class NpcSpawner {
       return true;
     }
     final movedMeters = _dist(_lastNearbyCenter!, playerPos);
-    final radiusDelta =
-        (_lastNearbyRadius! - effectiveSpawnRadius).abs();
+    final radiusDelta = (_lastNearbyRadius! - effectiveSpawnRadius).abs();
     return movedMeters >= _nearbyWaysRefreshDistanceMeters ||
         radiusDelta >= _nearbyWaysRefreshRadiusDeltaMeters;
   }
@@ -101,9 +98,6 @@ class NpcSpawner {
     required int desiredCount,
     double viewportRadiusMeters = 0,
   }) {
-    // Radio efectivo: lo mayor entre el viewport publicado por la
-    // pantalla y el baseline. Si la cámara está muy zoom-in, el
-    // baseline gana y garantiza algo de relleno cercano.
     final effectiveSpawnRadius = viewportRadiusMeters > 0
         ? max(viewportRadiusMeters, _baseSpawnRadiusMeters)
         : _baseSpawnRadiusMeters;
@@ -119,12 +113,9 @@ class NpcSpawner {
       }
     }
 
-    // El cap (densidad objetivo) aplica SOLO a la zona core, el spawn
-    // radius. Los NPCs entre spawn y despawn radius siguen vivos pero
-    // no bloquean la creación de nuevos hacia donde mira el jugador.
-    // Esto resuelve el síntoma "los NPCs se quedan atrás": cuando
-    // avanzas, los rezagados quedan en el anillo de buffer pero el cap
-    // se libera y aparecen nuevos delante.
+    // El cap aplica SOLO a la zona core (spawn radius). Los NPCs en
+    // el anillo de buffer no bloquean spawns nuevos delante. Esto
+    // arregla "los NPCs se quedan atrás" cuando avanzas.
     final toDespawnIds = toDespawn.toSet();
     var aliveInSpawnRadius = 0;
     for (final npc in current) {
@@ -146,7 +137,6 @@ class NpcSpawner {
       return NpcSpawnPlan(toSpawn: const [], toDespawnIds: toDespawn);
     }
 
-    // Particionar ways elegibles por tipo (filtro introducido en PR1).
     final carWays = nearby.where((w) => w.isForCars).toList();
     final peopleWays = nearby.where((w) => w.isForPeople).toList();
     if (carWays.isEmpty && peopleWays.isEmpty) {
@@ -164,7 +154,41 @@ class NpcSpawner {
       if (pool.isEmpty) continue;
       final way = pool[_random.nextInt(pool.length)];
 
-      final startIdx = _random.nextInt(way.nodes.length - 1);
+      // Dirección inicial según oneway. Inicializadas con dummies
+      // para que Dart no se queje de definite assignment.
+      int initialDirection = 1;
+      int initialTargetIndex = 0;
+      int startIdx = 0;
+
+      if (type == NpcType.car) {
+        switch (way.direction) {
+          case WayDirection.forward:
+            initialDirection = 1;
+            startIdx = _random.nextInt(way.nodes.length - 1);
+            initialTargetIndex = startIdx + 1;
+            break;
+          case WayDirection.backward:
+            initialDirection = -1;
+            startIdx = 1 + _random.nextInt(way.nodes.length - 1);
+            initialTargetIndex = startIdx - 1;
+            break;
+          case WayDirection.both:
+            initialDirection = _random.nextBool() ? 1 : -1;
+            if (initialDirection == 1) {
+              startIdx = _random.nextInt(way.nodes.length - 1);
+              initialTargetIndex = startIdx + 1;
+            } else {
+              startIdx = 1 + _random.nextInt(way.nodes.length - 1);
+              initialTargetIndex = startIdx - 1;
+            }
+            break;
+        }
+      } else {
+        initialDirection = 1;
+        startIdx = _random.nextInt(way.nodes.length - 1);
+        initialTargetIndex = startIdx + 1;
+      }
+
       final startNode = way.nodes[startIdx];
 
       toSpawn.add(Npc(
@@ -173,8 +197,8 @@ class NpcSpawner {
             GeoLocation(latitude: startNode.lat, longitude: startNode.lon),
         speed: type == NpcType.car ? _carSpeed : _personSpeed,
         currentWay: way,
-        targetNodeIndex: startIdx + 1,
-        moveDirection: 1,
+        targetNodeIndex: initialTargetIndex,
+        moveDirection: initialDirection,
         carColor: type == NpcType.car
             ? _carColors[_random.nextInt(_carColors.length)]
             : 0xFFFFFFFF,

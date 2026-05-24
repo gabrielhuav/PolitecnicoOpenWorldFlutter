@@ -8,7 +8,6 @@ import 'entity/tables.dart';
 import 'entity/tables_session.dart';
 import 'entity/tables_location.dart';
 
-// Archivo generado por build_runner.
 part 'pow_database.g.dart';
 
 @DriftDatabase(
@@ -23,13 +22,12 @@ part 'pow_database.g.dart';
     SavedLocations,
   ],
 )
-
 class PowDatabase extends _$PowDatabase {
   PowDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
-  
+  int get schemaVersion => 3;
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (Migrator m) async {
@@ -40,10 +38,11 @@ class PowDatabase extends _$PowDatabase {
             await m.createTable(gameSessions);
             await m.createTable(savedLocations);
           }
+          if (from < 3) {
+            await m.addColumn(roadWays, roadWays.direction);
+          }
         },
         beforeOpen: (details) async {
-          // Habilita FKs (necesario para que el ON DELETE CASCADE de
-          // saved_locations -> game_sessions funcione).
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
