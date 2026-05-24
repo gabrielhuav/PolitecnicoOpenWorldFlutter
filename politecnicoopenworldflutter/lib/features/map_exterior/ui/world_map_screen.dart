@@ -12,6 +12,8 @@ import '../../main_menu/state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
 import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
+import '../state/multiplayer_notifier.dart'; 
+import 'components/multiplayer_layer.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
 import 'components/map_status_indicator.dart';
@@ -113,6 +115,14 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             FadeTransition(opacity: animation, child: child),
       ),
     );
+
+    ref.listen<LatLng>(playerMovementProvider, (prev, next) {
+      try {
+        _mapController.move(next, _mapController.camera.zoom);
+        ref.read(multiplayerProvider.notifier).broadcastMovement(next); // ← agrega esta línea
+      } catch (_) {}
+    });
+    
     // Si el usuario salió al menú principal, este widget ya estará
     // desmontado y dispose() habrá llamado a stop(). Solo reanudamos
     // cuando seguimos vivos (es decir, cerró el menú con "Continuar").
@@ -164,6 +174,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 maxNativeZoom: tileProvider.maxZoom,
               ),
               const NpcMarkerLayer(),
+              
               MarkerLayer(
                 markers: [
                   Marker(

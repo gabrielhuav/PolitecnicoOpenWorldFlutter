@@ -7,6 +7,7 @@ import '../../../data/repository/map_repository_impl.dart';
 import 'world_map_provider.dart';
 
 export '../../../data/repository/map_repository_impl.dart';
+export 'multiplayer_notifier.dart';
 
 enum MapSyncStatus { online, downloading, offline }
 
@@ -46,3 +47,4 @@ final mapSyncStatusProvider = StateProvider<MapSyncStatus>((ref) {
   // Initialize with your default state
   return MapSyncStatus.online;
 });
+
