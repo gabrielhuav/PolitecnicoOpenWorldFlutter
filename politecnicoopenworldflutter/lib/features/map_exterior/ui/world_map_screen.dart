@@ -10,6 +10,7 @@ import '../../settings/state/map_tile_provider.dart';
 import '../state/camera_providers.dart';
 import '../../main_menu/state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
+import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
@@ -31,6 +32,8 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   /// el WidgetRef ya está invalidado (lanzaría
   /// "Cannot use 'ref' after the widget was disposed").
   NpcNotifier? _npcNotifierRef;
+
+  ChunkStreamerNotifier? _chunkStreamerRef;
 
   static const double _initialZoom = 17.5;
 
@@ -66,6 +69,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
       final initialCenter = ref.read(playerMovementProvider);
       _publishViewportRadius(initialCenter, _initialZoom);
       ref.read(npcNotifierProvider.notifier).start();
+      ref.read(chunkStreamerProvider.notifier).start(initialCenter);
     });
   }
 
@@ -75,12 +79,14 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
     // Capturamos la referencia mientras `ref` aún es válido. La usaremos
     // en dispose() sin tocar el WidgetRef.
     _npcNotifierRef ??= ref.read(npcNotifierProvider.notifier);
+    _chunkStreamerRef ??= ref.read(chunkStreamerProvider.notifier);
   }
 
   @override
   void dispose() {
     // No usar `ref` aquí: el ConsumerStatefulElement ya fue desmontado.
     _npcNotifierRef?.stop();
+    _chunkStreamerRef?.stop();
     _mapController.dispose();
     super.dispose();
   }

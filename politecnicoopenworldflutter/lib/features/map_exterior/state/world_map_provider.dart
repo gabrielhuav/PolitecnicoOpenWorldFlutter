@@ -26,8 +26,7 @@ class WorldMapProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   MapLoadProgress get progress => _progress;
 
-  /// Carga inicial. [radiusMeters] es el radio total a cubrir; el
-  /// repositorio decide cuántos batches Overpass usa.
+  /// Bootstrap inicial: lo invoca [LoadingScreen] una sola vez.
   Future<void> loadInitialMapData({
     double initialLat = 19.5045,
     double initialLon = -99.1465,
@@ -58,6 +57,49 @@ class WorldMapProvider extends ChangeNotifier {
       _errorMessage = 'Fallo crítico al inicializar el mundo: $e';
       AppLogger.log.e('loadInitialMapData falló', error: e, stackTrace: stack);
       rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Recarga la cobertura alrededor de un nuevo centro sin reiniciar
+  /// el estado. Lo invoca [ChunkStreamerNotifier] cuando detecta que
+  /// el jugador se movió más de un umbral desde la última recarga.
+  ///
+  /// Si las celdas que entran al nuevo círculo ya están en caché y
+  /// no han vencido, es casi instantáneo. Si no, sólo se descarga
+  /// la franja anular nueva.
+  Future<void> expandCoverage({
+    required double centerLat,
+    required double centerLon,
+    double radiusMeters = 5000,
+  }) async {
+    if (_isLoading) {
+      AppLogger.log.d('expandCoverage saltado: ya hay una carga en curso');
+      return;
+    }
+    AppLogger.log.i(
+      'expandCoverage: centro=($centerLat, $centerLon) '
+      'radio=${radiusMeters}m',
+    );
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final ways = await _mapRepository.getRoadsForLocation(
+        centerLat,
+        centerLon,
+        radiusMeters: radiusMeters,
+        onProgress: (p) {
+          _progress = p;
+          notifyListeners();
+        },
+      );
+      _ways = ways;
+      _nodes = ways.expand((w) => w.nodes).toList();
+      AppLogger.log.i('expandCoverage: ${ways.length} ways tras recentrar');
+    } catch (e, stack) {
+      AppLogger.log.e('expandCoverage falló', error: e, stackTrace: stack);
     } finally {
       _isLoading = false;
       notifyListeners();
