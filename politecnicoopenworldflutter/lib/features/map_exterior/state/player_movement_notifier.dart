@@ -1,67 +1,78 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
-// Asegúrate de importar tus providers del mapa correctamente
-import '../state/map_providers.dart';
+import '../../settings/state/game_settings_providers.dart';
+import 'location_providers.dart';
 
-class MapStatusIndicator extends ConsumerWidget {
-  const MapStatusIndicator({super.key});
+class PlayerMovementNotifier extends StateNotifier<LatLng> {
+  final Ref ref;
+  static const LatLng escomLocation = LatLng(19.5045, -99.1465);
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mapState = ref.watch(mapStateProvider);
-    final progress = mapState.progress;
+  /// Velocidad de caminata del jugador, en metros por segundo.
+  static const double walkSpeedMetersPerSecond = 5.0;
 
-    IconData icon;
-    String text;
-    Color color;
+  /// Intervalo de tick de los controles.
+  static const double _tickSeconds = 0.033;
 
-    // Evaluamos el estado de tu WorldMapProvider
-    if (mapState.isLoading) {
-      if (progress.status.contains('Descargando')) {
-        // Tu MapRepository está haciendo fetch a Overpass
-        icon = Icons.cloud_download;
-        text = 'Usando mapa en línea (Descarga en proceso... ${(progress.fraction * 100).toInt()}%)';
-        color = Colors.orangeAccent;
-      } else {
-        // Está cargando desde la base de datos local (RoadZoneDao)
-        icon = Icons.storage;
-        text = 'Verificando zona...';
-        color = Colors.yellowAccent;
-      }
-    } else if (mapState.errorMessage != null) {
-      icon = Icons.error_outline;
-      text = 'Error de conexión';
-      color = Colors.redAccent;
-    } else {
-      // Si isLoading es false, la zona en la que estás parado ya está en caché
-      icon = Icons.cloud_done;
-      text = 'Zona actual descargada';
-      color = Colors.greenAccent;
+  /// Aproximación: metros por grado de latitud.
+  static const double _metersPerLatDegree = 111000.0;
+
+  PlayerMovementNotifier(this.ref) : super(escomLocation);
+
+  void teleport(LatLng newPos) {
+    state = newPos;
+  }
+
+  Future<void> updatePositionByGps() async {
+    final useGps = ref.read(useRealLocationProvider);
+
+    if (!useGps) {
+      state = escomLocation;
+      return;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white, 
-              fontSize: 12, 
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+    final service = ref.read(locationServiceProvider);
+    final position = await service.getCurrent();
+
+    if (position != null) {
+      state = LatLng(position.latitude, position.longitude);
+    } else {
+      state = escomLocation;
+    }
+  }
+
+  Future<LatLng> resolveInitialPosition() async {
+    await updatePositionByGps();
+    return state;
+  }
+
+  void move(double deltaLat, double deltaLon) {
+    final stepDeg = _legacyStepDegrees();
+    state = LatLng(
+      state.latitude + (deltaLat * stepDeg),
+      state.longitude + (deltaLon * stepDeg),
     );
   }
+
+  void moveBy(double dx, double dy) {
+    final distanceMeters = walkSpeedMetersPerSecond * _tickSeconds;
+    final dLatDeg = (distanceMeters / _metersPerLatDegree) * (-dy);
+    final lonMetersPerDeg =
+        _metersPerLatDegree * math.cos(state.latitude * math.pi / 180);
+    final dLonDeg = (distanceMeters / lonMetersPerDeg) * dx;
+    state = LatLng(
+      state.latitude + dLatDeg,
+      state.longitude + dLonDeg,
+    );
+  }
+
+  double _legacyStepDegrees() =>
+      walkSpeedMetersPerSecond * _tickSeconds / _metersPerLatDegree;
 }
+
+final playerMovementProvider =
+    StateNotifierProvider<PlayerMovementNotifier, LatLng>((ref) {
+  return PlayerMovementNotifier(ref);
+});
