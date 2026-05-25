@@ -55,14 +55,20 @@ class RemotePlayer {
 class RemoteNpc {
   final String id;
   final LatLng position;
-  final String type; // 'car' o 'person'
+  final String type;
   final double rotation;
+  final double speed;
+  final int carColor;      
+  final String carModel;   
 
   const RemoteNpc({
     required this.id,
     required this.position,
     required this.type,
     this.rotation = 0,
+    this.speed = 0,
+    this.carColor = 0xFFFFFFFF,   
+    this.carModel = 'sedan',      
   });
 }
 
@@ -270,14 +276,21 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         case 'NPC_BATCH_UPDATE':
           final list = data['npcs'];
           if (list is List) {
+            final incomingIds = <String>{};
             final npcs =
                 Map<String, RemoteNpc>.from(state.remoteNpcs);
+            
             for (final n in list) {
               if (n is Map) {
                 final npc = _parseNpc(Map<String, dynamic>.from(n));
-                if (npc != null) npcs[npc.id] = npc;
+                if (npc != null) {
+                  npcs[npc.id] = npc;
+                  incomingIds.add(npc.id);
+                }
               }
             }
+            // Elimina NPCs que ya no están en la lista entrante:
+            npcs.removeWhere((id, _) => !incomingIds.contains(id));
             state = state.copyWith(remoteNpcs: npcs);
           }
 
@@ -350,11 +363,19 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         (data['vehicleRotation'] as num?)?.toDouble() ??
         (data['rotationAngle'] as num?)?.toDouble() ??
         0.0;
+
+    final speed = (data['speed'] as num?)?.toDouble() ?? 0.0;
+    final carColor = (data['carColor'] as int?) ?? 0xFFFFFFFF;
+    final carModel = (data['carModel'] as String?) ?? 'sedan';
+
     return RemoteNpc(
       id: id,
       position: LatLng(y, x),
       type: type,
       rotation: rotation,
+      speed: speed,
+      carColor: carColor,
+      carModel: carModel,
     );
   }
 
@@ -381,6 +402,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   }
 
   /// Envía los NPCs locales al servidor. SOLO el Host de zona lo llama.
+  // En broadcastNpcs(), reemplaza el map actual:
   void broadcastNpcs(List<dynamic> localNpcs) {
     if (!state.isConnected || !state.isZoneHost) return;
 
@@ -391,6 +413,10 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         'y': (npc.location.latitude) as double,
         'type': (npc.type.name) as String,
         'rotation': (npc.rotationAngle as double?) ?? 0.0,
+        'speed': (npc.speed as double?) ?? 0.0,
+        // ── NUEVO: datos visuales ──
+        'carColor': npc.carColor as int,
+        'carModel': npc.carModel.name as String,
       };
     }).toList();
 
