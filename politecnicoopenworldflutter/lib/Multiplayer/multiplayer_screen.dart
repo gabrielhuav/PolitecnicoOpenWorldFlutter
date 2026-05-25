@@ -7,9 +7,9 @@ import '../features/map_exterior/ui/loading_screen.dart';
 import '../features/map_exterior/state/location_providers.dart';
 import 'multiplayer_notifier.dart';
 
-/// Pantalla de multijugador simplificada.
-/// Muestra el estado de la conexión y un único botón para conectar/desconectar.
-/// Tras conectarse, redirige directamente al mapa.
+/// Pantalla de multijugador.
+/// Muestra un campo para ingresar el nombre visible antes de conectarse,
+/// el estado de la conexión y botones de acción.
 class MultiplayerScreen extends ConsumerStatefulWidget {
   const MultiplayerScreen({super.key});
 
@@ -20,15 +20,48 @@ class MultiplayerScreen extends ConsumerStatefulWidget {
 class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
   bool _navigating = false;
 
+  /// Controlador del campo de nombre. Se pre-llena con el nombre del
+  /// personaje seleccionado (o con el último nombre usado si ya hay uno
+  /// guardado en el estado del notifier).
+  late final TextEditingController _nameController;
+  final _nameFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Usa el nombre del estado actual si ya lo escribió antes en esta sesión,
+    // o el nombre del personaje como sugerencia inicial.
+    final existingName = ref.read(multiplayerProvider).playerName;
+    final characterName = ref.read(selectedCharacterProvider).name;
+    _nameController = TextEditingController(
+      text: existingName.isNotEmpty ? existingName : characterName,
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _nameFocusNode.dispose();
+    super.dispose();
+  }
+
+  String get _trimmedName => _nameController.text.trim();
+
   Future<void> _connect() async {
     if (_navigating) return;
 
+    // Cerrar teclado antes de conectar.
+    _nameFocusNode.unfocus();
+
+    final name = _trimmedName.isNotEmpty
+        ? _trimmedName
+        : ref.read(selectedCharacterProvider).name;
+
     final url = ref.read(multiplayerServerUrlProvider);
-    final character = ref.read(selectedCharacterProvider);
 
     await ref.read(multiplayerProvider.notifier).connect(
           serverUrl: url,
-          playerName: character.name,
+          playerName: name,
         );
 
     if (!mounted) return;
@@ -63,215 +96,266 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Barra superior ──────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 16, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        color: Colors.white, size: 26),
-                    onPressed: () {
-                      _disconnect();
-                      Navigator.pop(context);
-                    },
-                  ),
-                  const Text(
-                    'Multijugador',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+      // GestureDetector para cerrar el teclado al tocar fuera.
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // ── Barra superior ──────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 8, 16, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back,
+                          color: Colors.white, size: 26),
+                      onPressed: () {
+                        _disconnect();
+                        Navigator.pop(context);
+                      },
                     ),
-                  ),
-                ],
+                    const Text(
+                      'Multijugador',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            // ── Cuerpo ──────────────────────────────────────────────
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Icono de estado animado
-                      _StatusIcon(status: mpState.status),
-                      const SizedBox(height: 20),
-
-                      // Título de estado
-                      Text(
-                        _statusTitle(mpState.status),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Subtítulo / descripción
-                      Text(
-                        _statusSubtitle(mpState.status),
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-
-                      // Error
-                      if (hasError && mpState.errorMessage != null) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color:
-                                    Colors.redAccent.withValues(alpha: 0.4)),
-                          ),
-                          child: Text(
-                            mpState.errorMessage!,
-                            style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 12,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-
-                      // Chips informativos cuando está conectado
-                      if (isConnected) ...[
+              // ── Cuerpo ──────────────────────────────────────────────
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Icono de estado animado
+                        _StatusIcon(status: mpState.status),
                         const SizedBox(height: 20),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            if (mpState.players.isNotEmpty)
-                              _Chip(
-                                icon: Icons.people_rounded,
-                                label: '${mpState.players.length} en línea',
-                                color: Colors.greenAccent,
-                              ),
-                            _Chip(
-                              icon: mpState.isZoneHost
-                                  ? Icons.star_rounded
-                                  : Icons.person_rounded,
-                              label: mpState.isZoneHost
-                                  ? 'Host de zona'
-                                  : 'Cliente',
-                              color: mpState.isZoneHost
-                                  ? Colors.amberAccent
-                                  : Colors.white54,
-                            ),
-                            if (mpState.remoteNpcs.isNotEmpty)
-                              _Chip(
-                                icon: Icons.directions_car_rounded,
-                                label: '${mpState.remoteNpcs.length} NPCs',
-                                color: Colors.lightBlueAccent,
-                              ),
-                          ],
+
+                        // Título de estado
+                        Text(
+                          _statusTitle(mpState.status),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ],
+                        const SizedBox(height: 8),
 
-                      const SizedBox(height: 40),
+                        // Subtítulo / descripción
+                        Text(
+                          _statusSubtitle(mpState.status),
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 13,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
 
-                      // ── BOTÓN PRINCIPAL ──────────────────────────
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton.icon(
-                          onPressed: _navigating
-                              ? null
-                              : isConnected
-                                  ? _navigateToMap
-                                  : isConnecting
-                                      ? null
-                                      : _connect,
-                          icon: isConnecting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
+                        // ── CAMPO DE NOMBRE ──────────────────────────
+                        // Solo visible cuando no está conectado todavía.
+                        if (!isConnected) ...[
+                          const SizedBox(height: 28),
+                          _NameField(
+                            controller: _nameController,
+                            focusNode: _nameFocusNode,
+                            enabled: !isConnecting,
+                          ),
+                        ],
+
+                        // Chips informativos cuando está conectado
+                        if (isConnected) ...[
+                          const SizedBox(height: 20),
+                          // Muestra el nombre con el que se conectó
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color:
+                                  Colors.tealAccent.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: Colors.tealAccent
+                                      .withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.badge_outlined,
+                                    color: Colors.tealAccent, size: 14),
+                                const SizedBox(width: 6),
+                                Text(
+                                  mpState.playerName,
+                                  style: const TextStyle(
+                                    color: Colors.tealAccent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                )
-                              : Icon(
-                                  isConnected
-                                      ? Icons.play_arrow_rounded
-                                      : hasError
-                                          ? Icons.refresh_rounded
-                                          : Icons.people_rounded,
-                                  size: 22,
                                 ),
-                          label: Text(
-                            isConnecting
-                                ? 'Conectando...'
-                                : isConnected
-                                    ? 'Entrar al mapa'
-                                    : hasError
-                                        ? 'Reintentar'
-                                        : 'Conectarse',
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
+                              ],
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isConnected
-                                ? const Color(0xFF0F766E)
-                                : hasError
-                                    ? Colors.redAccent
-                                    : const Color(0xFF0F766E),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 4,
-                            disabledBackgroundColor:
-                                const Color(0xFF0F766E).withValues(alpha: 0.4),
-                            disabledForegroundColor: Colors.white54,
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              if (mpState.players.isNotEmpty)
+                                _Chip(
+                                  icon: Icons.people_rounded,
+                                  label:
+                                      '${mpState.players.length} en línea',
+                                  color: Colors.greenAccent,
+                                ),
+                              _Chip(
+                                icon: mpState.isZoneHost
+                                    ? Icons.star_rounded
+                                    : Icons.person_rounded,
+                                label: mpState.isZoneHost
+                                    ? 'Host de zona'
+                                    : 'Cliente',
+                                color: mpState.isZoneHost
+                                    ? Colors.amberAccent
+                                    : Colors.white54,
+                              ),
+                              if (mpState.remoteNpcs.isNotEmpty)
+                                _Chip(
+                                  icon: Icons.directions_car_rounded,
+                                  label:
+                                      '${mpState.remoteNpcs.length} NPCs',
+                                  color: Colors.lightBlueAccent,
+                                ),
+                            ],
                           ),
-                        ),
-                      ),
+                        ],
 
-                      // Botón desconectar (solo si está conectado)
-                      if (isConnected) ...[
-                        const SizedBox(height: 12),
+                        // Error
+                        if (hasError && mpState.errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color:
+                                  Colors.redAccent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: Colors.redAccent
+                                      .withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              mpState.errorMessage!,
+                              style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 40),
+
+                        // ── BOTÓN PRINCIPAL ──────────────────────────
                         SizedBox(
                           width: double.infinity,
-                          height: 46,
-                          child: OutlinedButton.icon(
-                            onPressed: _disconnect,
-                            icon: const Icon(Icons.logout, size: 18),
-                            label: const Text('Desconectar'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white60,
-                              side: const BorderSide(color: Colors.white24),
+                          height: 54,
+                          child: ElevatedButton.icon(
+                            onPressed: _navigating
+                                ? null
+                                : isConnected
+                                    ? _navigateToMap
+                                    : isConnecting
+                                        ? null
+                                        : _connect,
+                            icon: isConnecting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Icon(
+                                    isConnected
+                                        ? Icons.play_arrow_rounded
+                                        : hasError
+                                            ? Icons.refresh_rounded
+                                            : Icons.people_rounded,
+                                    size: 22,
+                                  ),
+                            label: Text(
+                              isConnecting
+                                  ? 'Conectando...'
+                                  : isConnected
+                                      ? 'Entrar al mapa'
+                                      : hasError
+                                          ? 'Reintentar'
+                                          : 'Conectarse',
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isConnected
+                                  ? const Color(0xFF0F766E)
+                                  : hasError
+                                      ? Colors.redAccent
+                                      : const Color(0xFF0F766E),
+                              foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
+                              elevation: 4,
+                              disabledBackgroundColor: const Color(0xFF0F766E)
+                                  .withValues(alpha: 0.4),
+                              disabledForegroundColor: Colors.white54,
                             ),
                           ),
                         ),
+
+                        // Botón desconectar (solo si está conectado)
+                        if (isConnected) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 46,
+                            child: OutlinedButton.icon(
+                              onPressed: _disconnect,
+                              icon:
+                                  const Icon(Icons.logout, size: 18),
+                              label: const Text('Desconectar'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white60,
+                                side: const BorderSide(
+                                    color: Colors.white24),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -302,7 +386,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
 
   String _statusSubtitle(MultiplayerStatus s) => switch (s) {
         MultiplayerStatus.disconnected =>
-          'Presiona el botón para unirte a la partida multijugador.',
+          'Elige tu nombre y presiona el botón para unirte.',
         MultiplayerStatus.connecting =>
           'Estableciendo conexión con el servidor...',
         MultiplayerStatus.connected =>
@@ -310,6 +394,81 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
         MultiplayerStatus.error =>
           'No se pudo alcanzar el servidor.\nVerifica tu conexión a internet.',
       };
+}
+
+// ── Campo de nombre ──────────────────────────────────────────────────
+
+class _NameField extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool enabled;
+
+  const _NameField({
+    required this.controller,
+    required this.focusNode,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'TU NOMBRE EN EL MAPA',
+          style: TextStyle(
+            color: Colors.white54,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          enabled: enabled,
+          maxLength: 20,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Ej. Jugador123',
+            hintStyle: const TextStyle(color: Colors.white30),
+            counterStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+            prefixIcon: const Icon(Icons.person_outline,
+                color: Colors.tealAccent, size: 20),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.07),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Colors.white12, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide:
+                  const BorderSide(color: Colors.tealAccent, width: 1.5),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.05), width: 1),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => focusNode.unfocus(),
+        ),
+      ],
+    );
+  }
 }
 
 // ── Widgets auxiliares ───────────────────────────────────────────────

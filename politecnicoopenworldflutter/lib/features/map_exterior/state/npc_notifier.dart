@@ -19,6 +19,11 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
   int _tickCounter = 0;
   int _lastReportedCount = -1;
 
+  /// Cada cuántos ticks se hace broadcast al servidor.
+  /// Con _tickInterval = 33ms, cada 3 ticks = ~100ms = 10 veces por segundo.
+  /// Suficiente para que el cliente vea movimiento fluido sin saturar la red.
+  static const int _broadcastEveryNTicks = 3;
+
   static const Duration _tickInterval = Duration(milliseconds: 33);
 
   NpcNotifier(this._ref, this._coordinator) : super(const []);
@@ -67,8 +72,6 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
       _ticker = null;
       return;
     }
-
-    // Guard: envuelto en try-catch para que cualquier error no mate el ticker
     try {
       _tick();
     } catch (e) {
@@ -77,9 +80,6 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
   }
 
   void _tick() {
-    // Intenta leer el estado de multijugador de forma segura.
-    // Si el provider no está disponible (singleplayer puro sin override),
-    // cae al modo offline sin romper el bucle.
     MultiplayerState? mpState;
     try {
       mpState = _ref.read(multiplayerProvider);
@@ -88,28 +88,31 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     }
 
     final isConnected = mpState?.isConnected ?? false;
-    final isZoneHost  = mpState?.isZoneHost  ?? false;
+    final isZoneHost = mpState?.isZoneHost ?? false;
 
     if (isConnected) {
       if (isZoneHost) {
-        // HOST: genera IA local y la transmite
+        // HOST: corre la IA local y cada N ticks transmite al servidor.
         _runLocalAiLogic();
-        try {
-          _ref.read(multiplayerProvider.notifier).broadcastNpcs(state);
-        } catch (_) {}
+        if (_tickCounter % _broadcastEveryNTicks == 0) {
+          try {
+            _ref.read(multiplayerProvider.notifier).broadcastNpcs(state);
+          } catch (_) {}
+        }
       } else {
-        // CLIENTE: los NPCs vienen del servidor como remoteNpcs
+        // CLIENTE: no simula nada localmente; los NPCs vienen como
+        // remoteNpcs en multiplayerProvider y NpcMarkerLayer los dibuja.
         if (state.isNotEmpty) state = const [];
       }
     } else {
-      // SINGLEPLAYER o desconectado: IA local normal
+      // SINGLEPLAYER: IA local normal, sin transmisión.
       _runLocalAiLogic();
     }
   }
 
   void _runLocalAiLogic() {
     final ways = _ref.read(mapStateProvider).ways;
-    if (ways.isEmpty) return; // sin vías no hay nada que simular
+    if (ways.isEmpty) return;
 
     _coordinator.setWays(ways);
 
@@ -117,11 +120,10 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     final dt = now.difference(_lastTick).inMicroseconds / 1e6;
     _lastTick = now;
 
-    // Protección: dt absurdamente grande (app en background, depurador, etc.)
-    // causaría que los NPCs "teleportaran". Lo acotamos a 0.1 s máximo.
+    // Acota dt para evitar teleportaciones si la app estuvo en background.
     final safeDt = dt.clamp(0.0, 0.1);
 
-    final playerPos     = _ref.read(playerMovementProvider);
+    final playerPos = _ref.read(playerMovementProvider);
     final viewportRadius = _ref.read(viewportRadiusProvider);
 
     final updated = _coordinator.tick(safeDt, playerPos, viewportRadius);

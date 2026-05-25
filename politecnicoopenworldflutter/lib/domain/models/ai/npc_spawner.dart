@@ -17,19 +17,34 @@ class NpcSpawner {
   /// Radio mínimo de spawn cuando no se conoce el viewport.
   static const double _baseSpawnRadiusMeters = 1000;
 
-  /// El despawn se hace a 1.25x el spawn efectivo: anillo de buffer
-  /// chico, NPCs detrás del jugador desaparecen pronto y dejan sitio.
+  /// El despawn se hace a 1.25x el spawn efectivo.
   static const double _despawnMultiplier = 1.25;
 
-  /// Tope absoluto; permite cap + buffer lleno sin colapsar render.
+  /// Tope absoluto.
   static const int _hardCap = 400;
 
   static const double _personSpeed = 1.4;
   static const double _carSpeed = 9.0;
 
+  /// Probabilidad de intentar spawnear un coche. Se elevó al 30% para
+  /// que haya una proporción más visible de vehículos en el mapa.
+  /// El spawn real sigue dependiendo de que existan carWays disponibles,
+  /// así que en zonas sin calles vehiculares aparecen personas de todas formas.
+  static const double _carSpawnChance = 0.30;
+
   static const List<int> _carColors = [
-    0xFFE53935, 0xFF1E88E5, 0xFF43A047, 0xFFFDD835,
-    0xFF8E24AA, 0xFFFFFFFF, 0xFF424242, 0xFF6D4C41,
+    0xFFE53935, // rojo
+    0xFF1E88E5, // azul
+    0xFF43A047, // verde
+    0xFFFDD835, // amarillo
+    0xFF8E24AA, // morado
+    0xFFFFFFFF, // blanco
+    0xFF424242, // gris oscuro
+    0xFF6D4C41, // marrón
+    0xFFFF6F00, // naranja
+    0xFF00ACC1, // cian
+    0xFF546E7A, // gris azulado
+    0xFFAD1457, // rosa oscuro
   ];
 
   static const Distance _dist = Distance();
@@ -104,7 +119,7 @@ class NpcSpawner {
     final effectiveDespawnRadius =
         effectiveSpawnRadius * _despawnMultiplier;
 
-    // Marcar para despawn lo que esté fuera del anillo de despawn.
+    // Despawn de NPCs fuera del anillo.
     final toDespawn = <String>[];
     for (final npc in current) {
       final pos = LatLng(npc.location.latitude, npc.location.longitude);
@@ -113,9 +128,6 @@ class NpcSpawner {
       }
     }
 
-    // El cap aplica SOLO a la zona core (spawn radius). Los NPCs en
-    // el anillo de buffer no bloquean spawns nuevos delante. Esto
-    // arregla "los NPCs se quedan atrás" cuando avanzas.
     final toDespawnIds = toDespawn.toSet();
     var aliveInSpawnRadius = 0;
     for (final npc in current) {
@@ -145,7 +157,9 @@ class NpcSpawner {
 
     final toSpawn = <Npc>[];
     for (int i = 0; i < needed; i++) {
-      final wantsCar = _random.nextDouble() < 0.25;
+      // 40% de probabilidad de intentar coche, pero solo si hay carWays.
+      // Si no hay carWays, cae a persona (y viceversa para peopleWays).
+      final wantsCar = _random.nextDouble() < _carSpawnChance;
       final type = wantsCar
           ? (carWays.isNotEmpty ? NpcType.car : NpcType.person)
           : (peopleWays.isNotEmpty ? NpcType.person : NpcType.car);
@@ -154,8 +168,6 @@ class NpcSpawner {
       if (pool.isEmpty) continue;
       final way = pool[_random.nextInt(pool.length)];
 
-      // Dirección inicial según oneway. Inicializadas con dummies
-      // para que Dart no se queje de definite assignment.
       int initialDirection = 1;
       int initialTargetIndex = 0;
       int startIdx = 0;

@@ -9,11 +9,13 @@ import 'package:web_socket_channel/io.dart';
 import '../core/utils/app_logger.dart';
 
 /// Radio de descarga del mapa en modo multijugador (metros).
-/// 30 km para que todos los jugadores vean el mismo entorno.
 const double kMultiplayerMapRadiusMeters = 30000;
 
+/// URL base del servidor. El path /flutter asegura que Flutter NO comparte
+/// sala con la versión Android (que se conecta a la raíz /), evitando
+/// conflictos de protocolo y NPCs duplicados entre plataformas.
 const String kDefaultMultiplayerServerUrl =
-    'wss://politecnicoopenworld.onrender.com';
+    'wss://politecnicoopenworld.onrender.com/flutter';
 
 final multiplayerServerUrlProvider =
     StateProvider<String>((ref) => kDefaultMultiplayerServerUrl);
@@ -90,7 +92,7 @@ class MultiplayerState {
         status: MultiplayerStatus.disconnected,
         players: {},
         remoteNpcs: {},
-        playerName: 'Jugador',
+        playerName: '',
       );
 
   MultiplayerState copyWith({
@@ -126,7 +128,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
 
   Future<void> connect({
     required String serverUrl,
-    String playerName = 'Jugador',
+    String playerName = '',
   }) async {
     if (state.isConnected || state.status == MultiplayerStatus.connecting) {
       return;
@@ -141,7 +143,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
       clearSessionId: true,
       isZoneHost: false,
     );
-    AppLogger.log.i('Multiplayer: conectando a $serverUrl');
+    AppLogger.log.i('Multiplayer: conectando a $serverUrl como "$playerName"');
 
     try {
       _channel = IOWebSocketChannel.connect(
@@ -177,7 +179,9 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
       'type': 'PLAYER_UPDATE',
       'x': pos.longitude,
       'y': pos.latitude,
-      'displayName': state.playerName,
+      'displayName': state.playerName.isNotEmpty
+          ? state.playerName
+          : 'Jugador Flutter',
       'action': 'idle',
       'facingRight': true,
       'isDriving': false,
@@ -190,7 +194,8 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     _channel?.sink.close(1000);
     _channel = null;
     if (mounted) {
-      state = MultiplayerState.initial().copyWith(playerName: state.playerName);
+      state = MultiplayerState.initial()
+          .copyWith(playerName: state.playerName);
     }
     AppLogger.log.i('Multiplayer: desconectado');
   }
@@ -245,8 +250,8 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
               }
             }
             state = state.copyWith(remoteNpcs: npcs);
-            AppLogger.log.i(
-                'Multiplayer: SYNC_ALL_NPCS ${npcs.length} NPCs');
+            AppLogger.log
+                .i('Multiplayer: SYNC_ALL_NPCS ${npcs.length} NPCs');
           }
 
         case 'NPC_SPAWN':
@@ -376,9 +381,6 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   }
 
   /// Envía los NPCs locales al servidor. SOLO el Host de zona lo llama.
-  ///
-  /// FIX: Npc usa [location] (GeoLocation), NO [position].
-  /// Se accede a npc.location.latitude / npc.location.longitude.
   void broadcastNpcs(List<dynamic> localNpcs) {
     if (!state.isConnected || !state.isZoneHost) return;
 
@@ -387,7 +389,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         'id': npc.id as String,
         'x': (npc.location.longitude) as double,
         'y': (npc.location.latitude) as double,
-        'type': (npc.type.name) as String, // 'car' o 'person'
+        'type': (npc.type.name) as String,
         'rotation': (npc.rotationAngle as double?) ?? 0.0,
       };
     }).toList();
