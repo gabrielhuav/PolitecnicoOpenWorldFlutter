@@ -71,6 +71,28 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
       return;
     }
 
+    // 1. Obtener estado del Multijugador
+    final mpState = _ref.read(multiplayerProvider);
+
+    // 2. Si estamos conectados, aplicar lógica de red
+    if (mpState.isConnected) {
+      if (mpState.isZoneHost) {
+        // ERES HOST: Ejecutas IA local y sincronizas al servidor
+        _runLocalAiLogic();
+        _ref.read(multiplayerProvider.notifier).broadcastNpcs(state);
+      } else {
+        // ERES CLIENTE: No generas IA local, renderizas lo que viene del servidor
+        if (state.isNotEmpty) state = const []; 
+        return; // No ejecutamos la IA local
+      }
+    } else {
+      // MODO UN JUGADOR: Lógica normal
+      _runLocalAiLogic();
+    }
+  }
+
+  void _runLocalAiLogic() {
+
     final mapProvider = _ref.read(mapStateProvider);
     final ways = mapProvider.ways;
     _coordinator.setWays(ways);
@@ -83,6 +105,9 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     final viewportRadius = _ref.read(viewportRadiusProvider);
     final updated = _coordinator.tick(dt, playerPos, viewportRadius);
     state = updated;
+    
+    // Actualizamos el estado con la nueva lista de NPCs
+    state = _coordinator.tick(dt, playerPos, viewportRadius);
 
     _tickCounter++;
 

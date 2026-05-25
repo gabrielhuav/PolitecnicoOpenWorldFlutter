@@ -383,6 +383,24 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     }
   }
 
+// Envía los NPCs locales al servidor. SOLO debe llamarse si eres el Host de la zona.
+  void broadcastNpcs(List<dynamic> localNpcs) {
+    if (!state.isConnected || !state.isZoneHost) return;
+
+    final npcList = localNpcs.map((npc) => {
+      'id': npc.id,
+      'x': npc.position.longitude,
+      'y': npc.position.latitude,
+      'type': npc.type.name, // Asegúrate de enviarlo como String ('car' o 'person')
+      'rotation': npc.rotation ?? 0.0, 
+    }).toList();
+
+    _sendJson({
+      'type': 'NPC_BATCH_UPDATE',
+      'npcs': npcList,
+    });
+  }
+
   void _sendJson(Map<String, dynamic> data) {
     try {
       _channel?.sink.add(jsonEncode(data));
@@ -402,3 +420,4 @@ final multiplayerProvider =
     StateNotifierProvider<MultiplayerNotifier, MultiplayerState>(
   (ref) => MultiplayerNotifier(),
 );
+

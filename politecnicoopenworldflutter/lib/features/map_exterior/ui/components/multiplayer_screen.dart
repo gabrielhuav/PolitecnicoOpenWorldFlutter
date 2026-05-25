@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/providers.dart';
@@ -6,6 +7,7 @@ import '../../../../ui/theme/theme_extensions.dart';
 import '../../../main_menu/state/character_provider.dart';
 import '../../../main_menu/ui/components/menu_button.dart';
 import '../../../map_exterior/ui/loading_screen.dart';
+import '../../../map_exterior/state/location_providers.dart';
 import '../../state/multiplayer_notifier.dart';
 
 class MultiplayerScreen extends ConsumerStatefulWidget {
@@ -49,13 +51,12 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
     return true;
   }
 
-  Future<void> _connect() async {
+ Future<void> _connect() async {
     if (_navigating) return;
 
     final url = _urlCtrl.text.trim();
     if (!_validateUrl(url)) return;
 
-    // Persiste el cambio antes de conectar.
     ref.read(multiplayerServerUrlProvider.notifier).state = url;
     await ref.read(settingsRepositoryProvider).setMultiplayerServerUrl(url);
 
@@ -69,6 +70,17 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
 
     final status = ref.read(multiplayerProvider).status;
     if (status == MultiplayerStatus.error) return;
+
+    // Obtenemos la ubicación actual del jugador y la enviamos al servidor para que otros jugadores la vean al entrar al mapa.
+    final locationService = ref.read(locationServiceProvider); 
+
+    // LLAMAMOS al método para obtener el LatLng (es asíncrono)
+    final currentLatLng = await locationService.getCurrent();
+
+    // Enviamos el valor si no es nulo
+    if (currentLatLng != null) {
+      ref.read(multiplayerProvider.notifier).broadcastMovement(currentLatLng);
+    }
 
     setState(() => _navigating = true);
     Navigator.pushReplacement(
@@ -239,19 +251,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           theme: theme,
                         ),
                         const SizedBox(height: 6),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            'Emulador Android: ws://10.0.2.2:8080\n'
-                            'LAN: ws://<IP-del-servidor>:8080 '
-                            '(ej. ws://192.168.1.100:8080)',
-                            style: TextStyle(
-                              color: theme.textTertiary,
-                              fontSize: 11,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
+                        
 
                         const SizedBox(height: 28),
 
