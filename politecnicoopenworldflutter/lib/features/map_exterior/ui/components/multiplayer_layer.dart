@@ -1,12 +1,18 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../state/multiplayer_notifier.dart';
 
-/// Capa de flutter_map que dibuja un marcador por cada jugador remoto
-/// conectado al servidor. Se reconstruye solo cuando cambia el mapa
-/// de jugadores remotos, no en cada tick de NPC.
+/// Capa de flutter_map que dibuja:
+///   • Marcadores de jugadores remotos (círculo naranja).
+///   • NPCs remotos controlados por el Host de otra zona (círculo azul claro).
+///
+/// Solo se reconstruye cuando cambia `players` o `remoteNpcs`; no depende
+/// del ticker de NPCs locales.
 class MultiplayerLayer extends ConsumerWidget {
   const MultiplayerLayer({super.key});
 
@@ -15,55 +21,95 @@ class MultiplayerLayer extends ConsumerWidget {
     final players = ref.watch(
       multiplayerProvider.select((s) => s.players),
     );
+    final remoteNpcs = ref.watch(
+      multiplayerProvider.select((s) => s.remoteNpcs),
+    );
 
-    if (players.isEmpty) return const SizedBox.shrink();
+    if (players.isEmpty && remoteNpcs.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return MarkerLayer(
-      markers: players.values.map(_buildMarker).toList(growable: false),
+      markers: [
+        ...players.values.map(_buildPlayerMarker),
+        ...remoteNpcs.values.map(_buildNpcMarker),
+      ],
     );
   }
 
-  Marker _buildMarker(RemotePlayer player) {
+  // ── Marcador de jugador remoto ────────────────────────────────────
+
+  Marker _buildPlayerMarker(RemotePlayer player) {
     return Marker(
-      key: ValueKey('mp_${player.id}'),
+      key: ValueKey('mp_player_${player.id}'),
       point: player.position,
       width: 56,
       height: 68,
       alignment: Alignment.bottomCenter,
-      child: _RemotePlayerMarker(name: player.name),
+      child: _RemotePlayerMarker(player: player),
+    );
+  }
+
+  // ── Marcador de NPC remoto ────────────────────────────────────────
+
+  Marker _buildNpcMarker(RemoteNpc npc) {
+    final isCar = npc.type == 'car';
+    return Marker(
+      key: ValueKey('mp_npc_${npc.id}'),
+      point: npc.position,
+      width: isCar ? 22 : 14,
+      height: isCar ? 22 : 14,
+      alignment: Alignment.center,
+      child: isCar
+          ? _RemoteCarMarker(rotation: npc.rotation)
+          : const _RemotePersonMarker(),
     );
   }
 }
 
+// ── Widgets de marcadores ────────────────────────────────────────────
+
 class _RemotePlayerMarker extends StatelessWidget {
-  final String name;
-  const _RemotePlayerMarker({required this.name});
+  final RemotePlayer player;
+  const _RemotePlayerMarker({required this.player});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Etiqueta con el nombre
+        // Nombre + rol
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Text(
-            name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (player.isHost) ...[
+                const Icon(Icons.star_rounded,
+                    size: 9, color: Colors.amberAccent),
+                const SizedBox(width: 3),
+              ],
+              Flexible(
+                child: Text(
+                  player.displayName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 2),
-        // Marcador circular naranja (diferencia del jugador local que es azul)
+        // Círculo del jugador (naranja para diferenciarlo del jugador local)
         Stack(
           alignment: Alignment.center,
           children: [
@@ -79,7 +125,9 @@ class _RemotePlayerMarker extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: const Color(0xFFFF6B35),
+                color: player.isDriving
+                    ? const Color(0xFFFF9800)
+                    : const Color(0xFFFF6B35),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2.5),
                 boxShadow: const [
@@ -90,11 +138,71 @@ class _RemotePlayerMarker extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Icons.person, color: Colors.white, size: 16),
+              child: Icon(
+                player.isDriving
+                    ? Icons.directions_car
+                    : Icons.person,
+                color: Colors.white,
+                size: 16,
+              ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// NPC persona remoto — círculo azul claro para distinguirlo
+/// de los NPCs locales (azul oscuro).
+class _RemotePersonMarker extends StatelessWidget {
+  const _RemotePersonMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF29B6F6),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black38,
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// NPC coche remoto — rectángulo rotado con color del servidor.
+class _RemoteCarMarker extends StatelessWidget {
+  final double rotation;
+  const _RemoteCarMarker({required this.rotation});
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: rotation * math.pi / 180,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF29B6F6),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.black87, width: 1.2),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 2,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Icon(Icons.arrow_drop_up, size: 14, color: Colors.black87),
+        ),
+      ),
     );
   }
 }

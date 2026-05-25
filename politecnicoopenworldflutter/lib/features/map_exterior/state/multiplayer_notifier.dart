@@ -4,15 +4,12 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/app_logger.dart';
 
-// ── URL del servidor ────────────────────────────────────────────────
-// Cambia esta constante a la IP/dominio de tu servidor WebSocket.
+// URL del servidor WebSocket (server.js). 10.0.2.2 → host desde el emulador Android.
 const String kMultiplayerServerUrl = 'ws://10.0.2.2:8080';
 
-// ── Modelo de jugador remoto ────────────────────────────────────────
 class RemotePlayer {
   final String id;
   final LatLng position;
@@ -31,89 +28,91 @@ class RemotePlayer {
       );
 }
 
-// ── Estado del multiplayer ──────────────────────────────────────────
 enum MultiplayerStatus { disconnected, connecting, connected, error }
 
 class MultiplayerState {
   final MultiplayerStatus status;
   final Map<String, RemotePlayer> players;
   final String? errorMessage;
-  final String localPlayerId;
+  /// Lo asigna el server vía SESSION_INIT. Null mientras no se haya recibido.
+  final String? localPlayerId;
+  final bool isZoneHost;
+  final String playerName;
 
   const MultiplayerState({
     required this.status,
     required this.players,
-    required this.localPlayerId,
+    required this.playerName,
+    this.localPlayerId,
     this.errorMessage,
+    this.isZoneHost = false,
   });
 
-  factory MultiplayerState.initial() => MultiplayerState(
+  factory MultiplayerState.initial() => const MultiplayerState(
         status: MultiplayerStatus.disconnected,
-        players: const {},
-        localPlayerId: const Uuid().v4(),
+        players: {},
+        playerName: 'Jugador',
       );
 
   MultiplayerState copyWith({
     MultiplayerStatus? status,
     Map<String, RemotePlayer>? players,
     String? errorMessage,
+    String? localPlayerId,
+    bool? isZoneHost,
+    String? playerName,
     bool clearError = false,
+    bool clearLocalId = false,
   }) =>
       MultiplayerState(
         status: status ?? this.status,
         players: players ?? this.players,
-        localPlayerId: localPlayerId,
+        localPlayerId: clearLocalId ? null : (localPlayerId ?? this.localPlayerId),
+        isZoneHost: isZoneHost ?? this.isZoneHost,
+        playerName: playerName ?? this.playerName,
         errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       );
 
   bool get isConnected => status == MultiplayerStatus.connected;
 }
 
-// ── Notifier ────────────────────────────────────────────────────────
 class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   MultiplayerNotifier() : super(MultiplayerState.initial());
 
   WebSocketChannel? _channel;
-  StreamSubscription? _sub;
-  Timer? _pingTimer;
+  StreamSubscription<dynamic>? _sub;
 
-  /// Conecta al servidor WebSocket. Equivalente al connect() de Android.
+  // ── Conexión ───────────────────────────────────────────────────────
   Future<void> connect({String playerName = 'Jugador'}) async {
-    if (state.isConnected) return;
+    if (state.isConnected || state.status == MultiplayerStatus.connecting) {
+      return;
+    }
 
     state = state.copyWith(
       status: MultiplayerStatus.connecting,
+      playerName: playerName,
+      players: const {},
       clearError: true,
+      clearLocalId: true,
+      isZoneHost: false,
     );
     AppLogger.log.i('Multiplayer: conectando a $kMultiplayerServerUrl');
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(kMultiplayerServerUrl));
-
-      // Espera a que el handshake WebSocket termine
       await _channel!.ready;
 
-      state = state.copyWith(status: MultiplayerStatus.connected);
-      AppLogger.log.i('Multiplayer: conexión establecida ✅');
-
-      // Notifica al servidor quiénes somos
-      _sendJson({
-        'type': 'join',
-        'id': state.localPlayerId,
-        'name': playerName,
-      });
-
-      // Escucha mensajes entrantes
       _sub = _channel!.stream.listen(
         _onMessage,
         onError: _onError,
         onDone: _onDone,
       );
 
-      // Ping cada 25 s (igual que el pingInterval de Android)
-      _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
-        _sendJson({'type': 'ping', 'id': state.localPlayerId});
-      });
+      state = state.copyWith(status: MultiplayerStatus.connected);
+      AppLogger.log.i('Multiplayer: conexión establecida');
+      // No enviamos nada aún: el server nos manda SESSION_INIT y ROLE_UPDATE
+      // antes de que tengamos posición. La primera emisión PLAYER_UPDATE
+      // sale desde WorldMapScreen al montarse el mapa (ver cambio 2).
     } catch (e) {
       AppLogger.log.e('Multiplayer: error al conectar', error: e);
       state = state.copyWith(
@@ -123,110 +122,109 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     }
   }
 
-  /// Envía la posición local al servidor.
+  // ── Envío de posición ──────────────────────────────────────────────
+  /// Se llama desde WorldMapScreen en cada cambio de playerMovementProvider
+  /// y una vez en initState. El server usa el primer PLAYER_UPDATE como
+  /// registro del jugador; sin esa emisión nadie nos ve.
   void broadcastMovement(LatLng pos) {
     if (!state.isConnected) return;
     _sendJson({
-      'type': 'move',
-      'id': state.localPlayerId,
-      'lat': pos.latitude,
-      'lon': pos.longitude,
+      'type': 'PLAYER_UPDATE',
+      // Convención: x = longitud, y = latitud (cartesiano estándar).
+      // El server.js usa HOST_RADIUS = 0.004 en ambas dimensiones, lo que
+      // equivale a ~444m en lat y ~420m en lon a 19.5°. Consistente con
+      // su comentario de "aproximadamente 400 metros".
+      'x': pos.longitude,
+      'y': pos.latitude,
+      'displayName': state.playerName,
+      'action': 'idle',
+      'facingRight': true,
+      'isDriving': false,
     });
   }
 
-  /// Cierra la conexión.
   void disconnect() {
-    _pingTimer?.cancel();
-    _pingTimer = null;
     _sub?.cancel();
     _sub = null;
     _channel?.sink.close(1000);
     _channel = null;
-
     if (mounted) {
-      state = state.copyWith(
-        status: MultiplayerStatus.disconnected,
-        players: {},
-        clearError: true,
-      );
+      state = MultiplayerState.initial().copyWith(playerName: state.playerName);
     }
-    AppLogger.log.i('Multiplayer: desconectado 🔌');
+    AppLogger.log.i('Multiplayer: desconectado');
   }
 
+  // ── Entrada de mensajes ────────────────────────────────────────────
   void _onMessage(dynamic raw) {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
 
       switch (type) {
-        case 'move':
-        case 'position':
+        case 'SESSION_INIT':
+          final sessionId = data['sessionId'] as String?;
+          if (sessionId == null) return;
+          state = state.copyWith(localPlayerId: sessionId);
+          AppLogger.log.i('Multiplayer: SESSION_INIT id=$sessionId');
+
+        case 'ROLE_UPDATE':
+          final isHost = data['isZoneHost'] as bool? ?? false;
+          state = state.copyWith(isZoneHost: isHost);
+          AppLogger.log.d('Multiplayer: ROLE_UPDATE isHost=$isHost');
+
+        case 'DISCONNECT':
           final id = data['id'] as String?;
-          if (id == null || id == state.localPlayerId) return;
-          final lat = (data['lat'] as num?)?.toDouble();
-          final lon = (data['lon'] as num?)?.toDouble();
-          if (lat == null || lon == null) return;
-
-          final updated = Map<String, RemotePlayer>.from(state.players);
-          updated[id] = (updated[id] ?? RemotePlayer(
-            id: id,
-            position: LatLng(lat, lon),
-            name: data['name'] as String? ?? 'Jugador',
-          )).copyWith(position: LatLng(lat, lon));
-          state = state.copyWith(players: updated);
-
-        case 'join':
-          final id = data['id'] as String?;
-          if (id == null || id == state.localPlayerId) return;
-          final updated = Map<String, RemotePlayer>.from(state.players);
-          updated[id] = RemotePlayer(
-            id: id,
-            position: LatLng(
-              (data['lat'] as num?)?.toDouble() ?? 19.5045,
-              (data['lon'] as num?)?.toDouble() ?? -99.1465,
-            ),
-            name: data['name'] as String? ?? 'Jugador',
-          );
-          state = state.copyWith(players: updated);
-          AppLogger.log.i('Multiplayer: jugador unido → $id');
-
-        case 'leave':
-          final id = data['id'] as String?;
-          if (id == null) return;
-          final updated = Map<String, RemotePlayer>.from(state.players)
-            ..remove(id);
-          state = state.copyWith(players: updated);
-          AppLogger.log.i('Multiplayer: jugador salió → $id');
-
-        case 'players':
-          // Lista inicial de jugadores al conectar
-          final list = data['players'] as List<dynamic>?;
-          if (list == null) return;
-          final updated = <String, RemotePlayer>{};
-          for (final p in list) {
-            final m = p as Map<String, dynamic>;
-            final id = m['id'] as String?;
-            if (id == null || id == state.localPlayerId) continue;
-            updated[id] = RemotePlayer(
-              id: id,
-              position: LatLng(
-                (m['lat'] as num?)?.toDouble() ?? 19.5045,
-                (m['lon'] as num?)?.toDouble() ?? -99.1465,
-              ),
-              name: m['name'] as String? ?? 'Jugador',
-            );
+          if (id != null) {
+            final updated = Map<String, RemotePlayer>.from(state.players)
+              ..remove(id);
+            state = state.copyWith(players: updated);
+            AppLogger.log.i('Multiplayer: jugador salió $id');
           }
-          state = state.copyWith(players: updated);
+          // El campo `orphanedNpcs` se ignora: los NPCs se simulan
+          // localmente en cada cliente.
 
-        case 'pong':
-          break; // solo keepalive
+        case 'PLAYER_UPDATE':
+        case null:
+          // Posición de OTRO jugador (el server reenvía PLAYER_UPDATE
+          // con `id` agregado, conservando o no el `type` original).
+          _handleRemotePlayerUpdate(data);
+
+        case 'SYNC_ALL_NPCS':
+        case 'NPC_SPAWN':
+        case 'NPC_UPDATE':
+        case 'NPC_BATCH_UPDATE':
+        case 'NPC_DESTROY':
+        case 'MASTER_SYNC_CHECK':
+        case 'PLAYER_DAMAGE':
+          // No implementado todavía en Flutter.
+          break;
 
         default:
-          AppLogger.log.d('Multiplayer: mensaje desconocido → $type');
+          AppLogger.log.d('Multiplayer: tipo desconocido $type');
       }
     } catch (e) {
-      AppLogger.log.w('Multiplayer: error al parsear mensaje: $e');
+      AppLogger.log.w('Multiplayer: no se pudo parsear: $e');
     }
+  }
+
+  void _handleRemotePlayerUpdate(Map<String, dynamic> data) {
+    final id = data['id'] as String?;
+    if (id == null || id == state.localPlayerId) return;
+    final x = (data['x'] as num?)?.toDouble();
+    final y = (data['y'] as num?)?.toDouble();
+    if (x == null || y == null) return;
+    final name = data['displayName'] as String? ?? 'Jugador';
+
+    final pos = LatLng(y, x); // y=lat, x=lon (inverso del envío).
+    final updated = Map<String, RemotePlayer>.from(state.players);
+    final existing = updated[id];
+    if (existing == null) {
+      updated[id] = RemotePlayer(id: id, position: pos, name: name);
+      AppLogger.log.i('Multiplayer: nuevo remoto $id ($name)');
+    } else {
+      updated[id] = existing.copyWith(position: pos, name: name);
+    }
+    state = state.copyWith(players: updated);
   }
 
   void _onError(Object e) {
@@ -240,13 +238,12 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   }
 
   void _onDone() {
-    AppLogger.log.i('Multiplayer: stream cerrado por el servidor');
-    _pingTimer?.cancel();
-    _pingTimer = null;
+    AppLogger.log.i('Multiplayer: stream cerrado');
     if (mounted) {
       state = state.copyWith(
         status: MultiplayerStatus.disconnected,
-        players: {},
+        players: const {},
+        clearLocalId: true,
       );
     }
   }
@@ -266,7 +263,6 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   }
 }
 
-// ── Provider global ─────────────────────────────────────────────────
 final multiplayerProvider =
     StateNotifierProvider<MultiplayerNotifier, MultiplayerState>(
   (ref) => MultiplayerNotifier(),
