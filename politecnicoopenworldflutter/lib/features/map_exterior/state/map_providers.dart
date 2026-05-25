@@ -7,7 +7,7 @@ import '../../../data/repository/map_repository_impl.dart';
 import 'world_map_provider.dart';
 
 export '../../../data/repository/map_repository_impl.dart';
-export 'multiplayer_notifier.dart';
+export '../../../../Multiplayer/multiplayer_notifier.dart';
 
 enum MapSyncStatus { online, downloading, offline }
 

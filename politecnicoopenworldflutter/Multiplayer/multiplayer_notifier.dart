@@ -6,7 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart'; // Importante para usar IOWebSocketChannel
 
-import '../../../core/utils/app_logger.dart';
+import '../lib/core/utils/app_logger.dart';
 
 /// SharedPreferences vía SettingsRepository.
 const String kDefaultMultiplayerServerUrl = 'wss://politecnicoopenworld.onrender.com';

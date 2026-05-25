@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../ui/theme/theme_extensions.dart';
-import '../../map_exterior/ui/components/multiplayer_screen.dart';
+import '../../../../Multiplayer/multiplayer_screen.dart';
 import '../../settings/ui/app_settings_screen.dart';
 import '../../settings/ui/game_settings_screen.dart';
 import 'character_selection_screen.dart';

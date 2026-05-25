@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/utils/providers.dart';
-import '../../../../ui/theme/theme_extensions.dart';
-import '../../../main_menu/state/character_provider.dart';
-import '../../../main_menu/ui/components/menu_button.dart';
-import '../../../map_exterior/ui/loading_screen.dart';
-import '../../../map_exterior/state/location_providers.dart';
-import '../../state/multiplayer_notifier.dart';
+import '../lib/core/utils/providers.dart';
+import '../lib/ui/theme/theme_extensions.dart';
+import '../lib/features/main_menu/state/character_provider.dart';
+import '../lib/features/main_menu/ui/components/menu_button.dart';
+import '../lib/features/map_exterior/ui/loading_screen.dart';
+import '../lib/features/map_exterior/state/location_providers.dart';
+import 'multiplayer_notifier.dart';
 
 class MultiplayerScreen extends ConsumerStatefulWidget {
   const MultiplayerScreen({super.key});

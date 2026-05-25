@@ -10,7 +10,7 @@ import 'features/settings/state/map_tile_provider.dart';
 import 'core/utils/providers.dart';
 import 'ui/theme/theme_providers.dart';
 import 'data/repository/settings_repository.dart';
-import 'features/map_exterior/state/multiplayer_notifier.dart';
+import '../Multiplayer/multiplayer_notifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
