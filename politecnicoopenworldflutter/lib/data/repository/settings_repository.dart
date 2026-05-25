@@ -67,4 +67,10 @@ class SettingsRepository {
   bool get freeMovement => _prefs.getBool('free_movement') ?? false;
   Future<void> setFreeMovement(bool value) =>
       _prefs.setBool('free_movement', value);
+
+  // Multijugador
+  String get multiplayerServerUrl =>
+      _prefs.getString('multiplayer_server_url') ?? 'wss://politecnicoopenworld.onrender.com';
+  Future<void> setMultiplayerServerUrl(String value) =>
+      _prefs.setString('multiplayer_server_url', value);
 }

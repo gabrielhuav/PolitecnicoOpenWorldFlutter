@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/providers.dart';
 import '../../../../ui/theme/theme_extensions.dart';
 import '../../../main_menu/state/character_provider.dart';
 import '../../../main_menu/ui/components/menu_button.dart';
@@ -16,14 +17,53 @@ class MultiplayerScreen extends ConsumerStatefulWidget {
 
 class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
   bool _navigating = false;
+  late final TextEditingController _urlCtrl;
+  String? _urlError;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlCtrl = TextEditingController(
+      text: ref.read(multiplayerServerUrlProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _urlCtrl.dispose();
+    super.dispose();
+  }
+
+  bool _validateUrl(String url) {
+    final trimmed = url.trim();
+    if (!trimmed.startsWith('ws://') && !trimmed.startsWith('wss://')) {
+      setState(() => _urlError = 'La URL debe empezar con ws:// o wss://');
+      return false;
+    }
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.host.isEmpty) {
+      setState(() => _urlError = 'URL inválida');
+      return false;
+    }
+    setState(() => _urlError = null);
+    return true;
+  }
 
   Future<void> _connect() async {
     if (_navigating) return;
 
+    final url = _urlCtrl.text.trim();
+    if (!_validateUrl(url)) return;
+
+    // Persiste el cambio antes de conectar.
+    ref.read(multiplayerServerUrlProvider.notifier).state = url;
+    await ref.read(settingsRepositoryProvider).setMultiplayerServerUrl(url);
+
     final character = ref.read(selectedCharacterProvider);
-    await ref
-        .read(multiplayerProvider.notifier)
-        .connect(playerName: character.name);
+    await ref.read(multiplayerProvider.notifier).connect(
+          serverUrl: url,
+          playerName: character.name,
+        );
 
     if (!mounted) return;
 
@@ -39,8 +79,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
     );
   }
 
-  void _disconnect() =>
-      ref.read(multiplayerProvider.notifier).disconnect();
+  void _disconnect() => ref.read(multiplayerProvider.notifier).disconnect();
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +103,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // ── Barra superior ──────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
                 child: Row(
@@ -91,18 +129,16 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                 ),
               ),
 
-              // ── Contenido ───────────────────────────────────────
               Expanded(
                 child: Center(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 20),
+                        horizontal: 32, vertical: 12),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _StatusIcon(status: mpState.status),
-                        const SizedBox(height: 24),
-
+                        const SizedBox(height: 20),
                         Text(
                           _statusTitle(mpState.status),
                           style: TextStyle(
@@ -112,8 +148,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
-
+                        const SizedBox(height: 6),
                         Text(
                           _statusSubtitle(mpState.status, character.name),
                           style: TextStyle(
@@ -123,7 +158,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           textAlign: TextAlign.center,
                         ),
 
-                        // Session ID (debug)
                         if (isConnected && mpState.sessionId != null) ...[
                           const SizedBox(height: 8),
                           Text(
@@ -135,7 +169,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           ),
                         ],
 
-                        // Error
                         if (hasError && mpState.errorMessage != null) ...[
                           const SizedBox(height: 12),
                           Container(
@@ -159,11 +192,13 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           ),
                         ],
 
-                        // Chips de estado (jugadores + rol)
+                        // Chips de estado
                         if (isConnected) ...[
-                          const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
                             children: [
                               if (mpState.players.isNotEmpty)
                                 _InfoChip(
@@ -172,8 +207,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                                       '${mpState.players.length} en línea',
                                   color: Colors.greenAccent,
                                 ),
-                              if (mpState.players.isNotEmpty)
-                                const SizedBox(width: 10),
                               _InfoChip(
                                 icon: mpState.isZoneHost
                                     ? Icons.star_rounded
@@ -185,22 +218,43 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                                     ? Colors.amberAccent
                                     : Colors.white54,
                               ),
-                              if (mpState.remoteNpcs.isNotEmpty) ...[
-                                const SizedBox(width: 10),
+                              if (mpState.remoteNpcs.isNotEmpty)
                                 _InfoChip(
                                   icon: Icons.directions_car_rounded,
                                   label:
                                       '${mpState.remoteNpcs.length} NPCs',
                                   color: Colors.lightBlueAccent,
                                 ),
-                              ],
                             ],
                           ),
                         ],
 
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 28),
 
-                        // Botones de acción
+                        // ── Campo de URL del servidor ─────────────────
+                        _ServerUrlField(
+                          controller: _urlCtrl,
+                          enabled: !isConnecting && !isConnected,
+                          errorText: _urlError,
+                          theme: theme,
+                        ),
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            'Emulador Android: ws://10.0.2.2:8080\n'
+                            'LAN: ws://<IP-del-servidor>:8080 '
+                            '(ej. ws://192.168.1.100:8080)',
+                            style: TextStyle(
+                              color: theme.textTertiary,
+                              fontSize: 11,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 28),
+
                         if (!isConnected && !isConnecting)
                           MenuButton(
                             title: hasError
@@ -212,7 +266,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           ),
 
                         if (isConnecting)
-                          MenuButton(
+                          const MenuButton(
                             title: 'Conectando...',
                             icon: Icons.sync,
                             isLoading: true,
@@ -226,7 +280,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                             isLoading: _navigating,
                             onPressed: _navigating ? null : _connect,
                           ),
-                          const SizedBox(height: 15),
+                          const SizedBox(height: 12),
                           MenuButton(
                             title: 'Desconectar',
                             icon: Icons.logout,
@@ -236,18 +290,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                         ],
                       ],
                     ),
-                  ),
-                ),
-              ),
-
-              // ── Pie ─────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  kMultiplayerServerUrl,
-                  style: TextStyle(
-                    color: theme.textTertiary,
-                    fontSize: 11,
                   ),
                 ),
               ),
@@ -267,17 +309,68 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
 
   String _statusSubtitle(MultiplayerStatus s, String name) => switch (s) {
         MultiplayerStatus.disconnected =>
-          'Toca el botón para unirte al servidor\ny jugar como $name.',
+          'Verifica la URL del servidor y conéctate\ncomo $name.',
         MultiplayerStatus.connecting =>
           'Estableciendo conexión con el servidor...',
         MultiplayerStatus.connected =>
           'Listo para explorar con otros jugadores.',
         MultiplayerStatus.error =>
-          'No se pudo alcanzar el servidor.\nVerifica tu conexión.',
+          'No se pudo alcanzar el servidor.\nRevisa la URL, la red y el firewall.',
       };
 }
 
 // ── Widgets auxiliares ───────────────────────────────────────────────
+
+class _ServerUrlField extends StatelessWidget {
+  final TextEditingController controller;
+  final bool enabled;
+  final String? errorText;
+  final dynamic theme; // AppTheme (evita import)
+
+  const _ServerUrlField({
+    required this.controller,
+    required this.enabled,
+    required this.errorText,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: TextInputType.url,
+      autocorrect: false,
+      style: TextStyle(color: theme.textPrimary, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: 'URL del servidor',
+        labelStyle: TextStyle(color: theme.textTertiary),
+        hintText: 'ws://192.168.1.100:8080',
+        hintStyle: TextStyle(color: theme.textTertiary.withValues(alpha: 0.6)),
+        prefixIcon: Icon(Icons.dns_outlined, color: theme.accentSecondary),
+        filled: true,
+        fillColor: Colors.black.withValues(alpha: 0.25),
+        errorText: errorText,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.borderSubtle),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.borderSubtle),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.accentSecondary, width: 1.5),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.borderSubtle.withValues(alpha: 0.5)),
+        ),
+      ),
+    );
+  }
+}
 
 class _StatusIcon extends StatefulWidget {
   final MultiplayerStatus status;
@@ -326,7 +419,7 @@ class _StatusIconState extends State<_StatusIcon>
     };
     return ScaleTransition(
       scale: _scale,
-      child: Icon(icon, size: 90, color: color),
+      child: Icon(icon, size: 80, color: color),
     );
   }
 }
