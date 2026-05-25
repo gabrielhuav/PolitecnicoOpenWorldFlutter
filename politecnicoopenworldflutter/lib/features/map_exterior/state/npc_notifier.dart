@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../domain/models/ai/npc_ai_coordinator.dart';
 import '../../../domain/models/npc.dart';
+import '../../../Multiplayer/multiplayer_notifier.dart';
 import 'camera_providers.dart';
 import 'map_providers.dart';
 import 'player_movement_notifier.dart';
@@ -30,7 +31,8 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     _tickCounter = 0;
     _lastReportedCount = -1;
     _ticker = Timer.periodic(_tickInterval, (_) => _onTick());
-    AppLogger.log.i('NpcNotifier: bucle iniciado (intervalo ${_tickInterval.inMilliseconds}ms)');
+    AppLogger.log.i(
+        'NpcNotifier: bucle iniciado (${_tickInterval.inMilliseconds}ms)');
   }
 
   void stop() {
@@ -41,9 +43,6 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     AppLogger.log.i('NpcNotifier: bucle detenido');
   }
 
-  /// Pausa el ticker conservando el estado y la lista de NPCs vivos.
-  /// Pensado para el menú de pausa: al reanudar, los NPCs continúan
-  /// desde donde estaban.
   void pause() {
     if (_ticker == null) return;
     _ticker?.cancel();
@@ -51,8 +50,6 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     AppLogger.log.d('NpcNotifier: bucle pausado');
   }
 
-  /// Reanuda el ticker tras una pausa. Resetea [_lastTick] para que el
-  /// primer dt no incluya el tiempo que la app estuvo en el menú.
   void resume() {
     if (_ticker != null) return;
     _lastTick = DateTime.now();
@@ -71,62 +68,78 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
       return;
     }
 
-    // 1. Obtener estado del Multijugador
-    final mpState = _ref.read(multiplayerProvider);
+    // Guard: envuelto en try-catch para que cualquier error no mate el ticker
+    try {
+      _tick();
+    } catch (e) {
+      AppLogger.log.w('NpcNotifier: error en tick ignorado: $e');
+    }
+  }
 
-    // 2. Si estamos conectados, aplicar lógica de red
-    if (mpState.isConnected) {
-      if (mpState.isZoneHost) {
-        // ERES HOST: Ejecutas IA local y sincronizas al servidor
+  void _tick() {
+    // Intenta leer el estado de multijugador de forma segura.
+    // Si el provider no está disponible (singleplayer puro sin override),
+    // cae al modo offline sin romper el bucle.
+    MultiplayerState? mpState;
+    try {
+      mpState = _ref.read(multiplayerProvider);
+    } catch (_) {
+      mpState = null;
+    }
+
+    final isConnected = mpState?.isConnected ?? false;
+    final isZoneHost  = mpState?.isZoneHost  ?? false;
+
+    if (isConnected) {
+      if (isZoneHost) {
+        // HOST: genera IA local y la transmite
         _runLocalAiLogic();
-        _ref.read(multiplayerProvider.notifier).broadcastNpcs(state);
+        try {
+          _ref.read(multiplayerProvider.notifier).broadcastNpcs(state);
+        } catch (_) {}
       } else {
-        // ERES CLIENTE: No generas IA local, renderizas lo que viene del servidor
-        if (state.isNotEmpty) state = const []; 
-        return; // No ejecutamos la IA local
+        // CLIENTE: los NPCs vienen del servidor como remoteNpcs
+        if (state.isNotEmpty) state = const [];
       }
     } else {
-      // MODO UN JUGADOR: Lógica normal
+      // SINGLEPLAYER o desconectado: IA local normal
       _runLocalAiLogic();
     }
   }
 
   void _runLocalAiLogic() {
+    final ways = _ref.read(mapStateProvider).ways;
+    if (ways.isEmpty) return; // sin vías no hay nada que simular
 
-    final mapProvider = _ref.read(mapStateProvider);
-    final ways = mapProvider.ways;
     _coordinator.setWays(ways);
 
     final now = DateTime.now();
     final dt = now.difference(_lastTick).inMicroseconds / 1e6;
     _lastTick = now;
 
-    final playerPos = _ref.read(playerMovementProvider);
+    // Protección: dt absurdamente grande (app en background, depurador, etc.)
+    // causaría que los NPCs "teleportaran". Lo acotamos a 0.1 s máximo.
+    final safeDt = dt.clamp(0.0, 0.1);
+
+    final playerPos     = _ref.read(playerMovementProvider);
     final viewportRadius = _ref.read(viewportRadiusProvider);
-    final updated = _coordinator.tick(dt, playerPos, viewportRadius);
+
+    final updated = _coordinator.tick(safeDt, playerPos, viewportRadius);
     state = updated;
-    
-    // Actualizamos el estado con la nueva lista de NPCs
-    state = _coordinator.tick(dt, playerPos, viewportRadius);
 
     _tickCounter++;
 
-    // Cada ~1 s (30 ticks) reporta estado general.
     if (_tickCounter % 30 == 0) {
       AppLogger.log.d(
-        'NpcNotifier diag: ways=${ways.length} npcs=${updated.length} '
-        'pos=(${playerPos.latitude.toStringAsFixed(5)}, '
-        '${playerPos.longitude.toStringAsFixed(5)}) '
-        'viewportR=${viewportRadius.toStringAsFixed(0)}m '
-        'dt=${dt.toStringAsFixed(3)}s',
+        'NpcNotifier: ways=${ways.length} npcs=${updated.length} '
+        'dt=${safeDt.toStringAsFixed(3)}s',
       );
     }
 
-    // Y cuando el conteo cambia, reporta inmediatamente.
     if (updated.length != _lastReportedCount) {
       AppLogger.log.i(
-        'NPC count: $_lastReportedCount -> ${updated.length} '
-        '(ways disponibles: ${ways.length})',
+        'NPC count: $_lastReportedCount → ${updated.length} '
+        '(ways=${ways.length})',
       );
       _lastReportedCount = updated.length;
     }

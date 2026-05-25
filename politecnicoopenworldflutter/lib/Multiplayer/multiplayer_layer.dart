@@ -9,9 +9,6 @@ import 'multiplayer_notifier.dart';
 /// Capa de flutter_map que dibuja:
 ///   • Marcadores de jugadores remotos (círculo naranja).
 ///   • NPCs remotos controlados por el Host de otra zona (círculo azul claro).
-///
-/// Solo se reconstruye cuando cambia `players` o `remoteNpcs`; no depende
-/// del ticker de NPCs locales.
 class MultiplayerLayer extends ConsumerWidget {
   const MultiplayerLayer({super.key});
 
@@ -36,20 +33,16 @@ class MultiplayerLayer extends ConsumerWidget {
     );
   }
 
-  // ── Marcador de jugador remoto ────────────────────────────────────
-
   Marker _buildPlayerMarker(RemotePlayer player) {
     return Marker(
       key: ValueKey('mp_player_${player.id}'),
       point: player.position,
-      width: 56,
-      height: 68,
+      width: 72,   // ancho generoso para que el nombre no se corte
+      height: 72,
       alignment: Alignment.bottomCenter,
       child: _RemotePlayerMarker(player: player),
     );
   }
-
-  // ── Marcador de NPC remoto ────────────────────────────────────────
 
   Marker _buildNpcMarker(RemoteNpc npc) {
     final isCar = npc.type == 'car';
@@ -77,38 +70,42 @@ class _RemotePlayerMarker extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Nombre + rol
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (player.isHost) ...[
-                const Icon(Icons.star_rounded,
-                    size: 9, color: Colors.amberAccent),
-                const SizedBox(width: 3),
-              ],
-              Flexible(
-                child: Text(
-                  player.displayName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+        // Nombre + rol — FIX: constraints acotados para evitar overflow
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 72),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (player.isHost) ...[
+                  const Icon(Icons.star_rounded,
+                      size: 9, color: Colors.amberAccent),
+                  const SizedBox(width: 3),
+                ],
+                // FIX: Flexible con overflow ellipsis evita el RenderFlex overflow
+                Flexible(
+                  child: Text(
+                    player.displayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 2),
-        // Círculo del jugador (naranja para diferenciarlo del jugador local)
+        // Círculo del jugador
         Stack(
           alignment: Alignment.center,
           children: [
@@ -138,9 +135,7 @@ class _RemotePlayerMarker extends StatelessWidget {
                 ],
               ),
               child: Icon(
-                player.isDriving
-                    ? Icons.directions_car
-                    : Icons.person,
+                player.isDriving ? Icons.directions_car : Icons.person,
                 color: Colors.white,
                 size: 16,
               ),
@@ -152,8 +147,6 @@ class _RemotePlayerMarker extends StatelessWidget {
   }
 }
 
-/// NPC persona remoto — círculo azul claro para distinguirlo
-/// de los NPCs locales (azul oscuro).
 class _RemotePersonMarker extends StatelessWidget {
   const _RemotePersonMarker();
 
@@ -176,7 +169,6 @@ class _RemotePersonMarker extends StatelessWidget {
   }
 }
 
-/// NPC coche remoto — rectángulo rotado con color del servidor.
 class _RemoteCarMarker extends StatelessWidget {
   final double rotation;
   const _RemoteCarMarker({required this.rotation});

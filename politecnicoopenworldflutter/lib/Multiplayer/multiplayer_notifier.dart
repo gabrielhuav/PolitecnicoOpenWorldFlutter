@@ -4,15 +4,17 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:web_socket_channel/io.dart'; // Importante para usar IOWebSocketChannel
+import 'package:web_socket_channel/io.dart';
 
-import '../lib/core/utils/app_logger.dart';
+import '../core/utils/app_logger.dart';
 
-/// SharedPreferences vía SettingsRepository.
-const String kDefaultMultiplayerServerUrl = 'wss://politecnicoopenworld.onrender.com';
+/// Radio de descarga del mapa en modo multijugador (metros).
+/// 30 km para que todos los jugadores vean el mismo entorno.
+const double kMultiplayerMapRadiusMeters = 30000;
 
-/// Provider editable de la URL del servidor. main.dart hace el override
-/// con el valor guardado en SharedPreferences.
+const String kDefaultMultiplayerServerUrl =
+    'wss://politecnicoopenworld.onrender.com';
+
 final multiplayerServerUrlProvider =
     StateProvider<String>((ref) => kDefaultMultiplayerServerUrl);
 
@@ -48,15 +50,11 @@ class RemotePlayer {
 }
 
 // ── Modelo: NPC remoto ──────────────────────────────────────────────
-/// NPC simulado por el host de zona de otro cliente. La capa
-/// MultiplayerLayer los renderiza; el ticker local de NpcNotifier sigue
-/// generando los suyos en paralelo (queda pendiente desactivarlos en
-/// modo multijugador para evitar duplicación).
 class RemoteNpc {
   final String id;
   final LatLng position;
   final String type; // 'car' o 'person'
-  final double rotation; // grados, 0 = norte
+  final double rotation;
 
   const RemoteNpc({
     required this.id,
@@ -74,8 +72,6 @@ class MultiplayerState {
   final Map<String, RemotePlayer> players;
   final Map<String, RemoteNpc> remoteNpcs;
   final String? errorMessage;
-
-  /// Lo asigna el servidor vía SESSION_INIT. null mientras no llegue.
   final String? sessionId;
   final bool isZoneHost;
   final String playerName;
@@ -148,13 +144,11 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     AppLogger.log.i('Multiplayer: conectando a $serverUrl');
 
     try {
-      // REEMPLAZO CLAVE: Usar IOWebSocketChannel para inyectar el pingInterval exacto de Android
       _channel = IOWebSocketChannel.connect(
         Uri.parse(serverUrl),
-        // Manda un ping cada 25 segundos para mantener viva la conexión en Render
-        pingInterval: const Duration(seconds: 25), 
+        pingInterval: const Duration(seconds: 25),
       );
-      
+
       await _channel!.ready;
 
       _sub = _channel!.stream.listen(
@@ -177,14 +171,10 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     }
   }
 
-  /// Se llama desde WorldMapScreen en cada cambio de posición del
-  /// jugador. Sin la primera emisión, el server no nos registra y
-  /// nadie nos ve.
   void broadcastMovement(LatLng pos) {
     if (!state.isConnected) return;
     _sendJson({
       'type': 'PLAYER_UPDATE',
-      // Convención del server.js: x = longitud, y = latitud.
       'x': pos.longitude,
       'y': pos.latitude,
       'displayName': state.playerName,
@@ -230,7 +220,8 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
           var players = state.players;
           var npcs = state.remoteNpcs;
           if (id != null && players.containsKey(id)) {
-            final updated = Map<String, RemotePlayer>.from(players)..remove(id);
+            final updated = Map<String, RemotePlayer>.from(players)
+              ..remove(id);
             players = updated;
             AppLogger.log.i('Multiplayer: salió $id');
           }
@@ -254,7 +245,8 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
               }
             }
             state = state.copyWith(remoteNpcs: npcs);
-            AppLogger.log.i('Multiplayer: SYNC_ALL_NPCS ${npcs.length} NPCs');
+            AppLogger.log.i(
+                'Multiplayer: SYNC_ALL_NPCS ${npcs.length} NPCs');
           }
 
         case 'NPC_SPAWN':
@@ -263,7 +255,8 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
           if (n is Map) {
             final npc = _parseNpc(Map<String, dynamic>.from(n));
             if (npc != null) {
-              final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs);
+              final npcs =
+                  Map<String, RemoteNpc>.from(state.remoteNpcs);
               npcs[npc.id] = npc;
               state = state.copyWith(remoteNpcs: npcs);
             }
@@ -272,7 +265,8 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         case 'NPC_BATCH_UPDATE':
           final list = data['npcs'];
           if (list is List) {
-            final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs);
+            final npcs =
+                Map<String, RemoteNpc>.from(state.remoteNpcs);
             for (final n in list) {
               if (n is Map) {
                 final npc = _parseNpc(Map<String, dynamic>.from(n));
@@ -285,19 +279,18 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         case 'NPC_DESTROY':
           final id = data['npcId'] as String?;
           if (id != null && state.remoteNpcs.containsKey(id)) {
-            final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs)
-              ..remove(id);
+            final npcs =
+                Map<String, RemoteNpc>.from(state.remoteNpcs)
+                  ..remove(id);
             state = state.copyWith(remoteNpcs: npcs);
           }
 
         case 'PLAYER_UPDATE':
         case null:
-          // El server reenvía PLAYER_UPDATE sin tipo o con type='PLAYER_UPDATE'.
           _handleRemotePlayerUpdate(data);
 
         case 'MASTER_SYNC_CHECK':
         case 'PLAYER_DAMAGE':
-          // No implementado todavía.
           break;
 
         default:
@@ -318,7 +311,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     final isHost = data['isHost'] as bool? ?? false;
     final isDriving = data['isDriving'] as bool? ?? false;
 
-    final pos = LatLng(y, x); // y=lat, x=lon (inverso del envío).
+    final pos = LatLng(y, x);
     final updated = Map<String, RemotePlayer>.from(state.players);
     final existing = updated[id];
     if (existing == null) {
@@ -348,7 +341,6 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     final y = (data['y'] as num?)?.toDouble();
     if (x == null || y == null) return null;
     final type = (data['type'] as String?) ?? 'person';
-    // El Android client puede usar nombres distintos; los aceptamos todos.
     final rotation = (data['rotation'] as num?)?.toDouble() ??
         (data['vehicleRotation'] as num?)?.toDouble() ??
         (data['rotationAngle'] as num?)?.toDouble() ??
@@ -383,16 +375,21 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     }
   }
 
-// Envía los NPCs locales al servidor. SOLO debe llamarse si eres el Host de la zona.
+  /// Envía los NPCs locales al servidor. SOLO el Host de zona lo llama.
+  ///
+  /// FIX: Npc usa [location] (GeoLocation), NO [position].
+  /// Se accede a npc.location.latitude / npc.location.longitude.
   void broadcastNpcs(List<dynamic> localNpcs) {
     if (!state.isConnected || !state.isZoneHost) return;
 
-    final npcList = localNpcs.map((npc) => {
-      'id': npc.id,
-      'x': npc.position.longitude,
-      'y': npc.position.latitude,
-      'type': npc.type.name, // Asegúrate de enviarlo como String ('car' o 'person')
-      'rotation': npc.rotation ?? 0.0, 
+    final npcList = localNpcs.map((npc) {
+      return {
+        'id': npc.id as String,
+        'x': (npc.location.longitude) as double,
+        'y': (npc.location.latitude) as double,
+        'type': (npc.type.name) as String, // 'car' o 'person'
+        'rotation': (npc.rotationAngle as double?) ?? 0.0,
+      };
     }).toList();
 
     _sendJson({
@@ -420,4 +417,3 @@ final multiplayerProvider =
     StateNotifierProvider<MultiplayerNotifier, MultiplayerState>(
   (ref) => MultiplayerNotifier(),
 );
-
