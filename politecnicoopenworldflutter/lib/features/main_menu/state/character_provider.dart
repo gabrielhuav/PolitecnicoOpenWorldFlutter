@@ -5,27 +5,31 @@ import '../../../domain/models/character_visual_config.dart';
 final availableCharactersProvider = Provider<List<Character>>((ref) {
   return const [
     Character(
-      id: 'char_aventurero',
-      name: 'Aventurero',
-      description: 'Explorador clásico del Politécnico',
+      id: 'char_aventurera',
+      name: 'Aventurera',
+      description: 'Exploradora clásica del Politécnico',
       visualConfig: CharacterVisualConfig.adventurer,
+      imagePath: 'assets/character/select_character/aventurera.png',
     ),
     Character(
-      id: 'char_exploradora',
-      name: 'Exploradora',
+      id: 'char_explorador',
+      name: 'Explorador',
       description: 'Ágil y resistente al sol del DF',
       visualConfig: CharacterVisualConfig.explorer,
+      imagePath: 'assets/character/select_character/explorador.png',
     ),
     Character(
       id: 'char_ingeniero',
       name: 'Ingeniero',
       description: 'Conoce todos los atajos del campus',
       visualConfig: CharacterVisualConfig.engineer,
+      imagePath: 'assets/character/select_character/ingeniero.png',
     ),
     Character(
       id: 'char_custom',
       name: 'Personalizar',
       description: 'Diseña tu propio avatar',
+      imagePath: 'assets/character/select_character/custom.png',
       isCustomSlot: true,
     ),
   ];
