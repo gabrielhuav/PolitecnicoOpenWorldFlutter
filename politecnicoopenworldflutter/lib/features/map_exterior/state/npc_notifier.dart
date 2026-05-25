@@ -1,10 +1,15 @@
+// lib/features/map_exterior/state/npc_notifier.dart
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../domain/models/ai/npc_ai_coordinator.dart';
 import '../../../domain/models/npc.dart';
+import '../../../domain/models/geo_location.dart';
+import '../../../domain/models/npc_enums.dart';
 import '../../../Multiplayer/multiplayer_notifier.dart';
 import 'camera_providers.dart';
 import 'map_providers.dart';
@@ -19,11 +24,7 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
   int _tickCounter = 0;
   int _lastReportedCount = -1;
 
-  /// Cada cuántos ticks se hace broadcast al servidor.
-  /// Con _tickInterval = 33ms, cada 3 ticks = ~100ms = 10 veces por segundo.
-  /// Suficiente para que el cliente vea movimiento fluido sin saturar la red.
   static const int _broadcastEveryNTicks = 3;
-
   static const Duration _tickInterval = Duration(milliseconds: 33);
 
   NpcNotifier(this._ref, this._coordinator) : super(const []);
@@ -36,15 +37,14 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     _tickCounter = 0;
     _lastReportedCount = -1;
     _ticker = Timer.periodic(_tickInterval, (_) => _onTick());
-    AppLogger.log.i(
-        'NpcNotifier: bucle iniciado (${_tickInterval.inMilliseconds}ms)');
+    AppLogger.log.i('NpcNotifier: bucle iniciado');
   }
 
   void stop() {
     _ticker?.cancel();
     _ticker = null;
     _coordinator.clear();
-    if (mounted) state = const [];
+    ///if (mounted) state = const [];
     AppLogger.log.i('NpcNotifier: bucle detenido');
   }
 
@@ -92,22 +92,55 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
 
     if (isConnected) {
       if (isZoneHost) {
-        // HOST: corre la IA local y cada N ticks transmite al servidor.
+        // HOST: corre IA local y broadcast cada N ticks
         _runLocalAiLogic();
+        _tickCounter++;
         if (_tickCounter % _broadcastEveryNTicks == 0) {
           try {
             _ref.read(multiplayerProvider.notifier).broadcastNpcs(state);
           } catch (_) {}
         }
       } else {
-        // CLIENTE: no simula nada localmente; los NPCs vienen como
-        // remoteNpcs en multiplayerProvider y NpcMarkerLayer los dibuja.
-        if (state.isNotEmpty) state = const [];
+        // CLIENTE: convierte remoteNpcs del servidor en Npc locales para dibujar
+        _syncFromRemoteNpcs(mpState!);
       }
     } else {
-      // SINGLEPLAYER: IA local normal, sin transmisión.
+      // SINGLEPLAYER
       _runLocalAiLogic();
+      _tickCounter++;
     }
+  }
+
+  /// Convierte el estado remoto de NPCs del servidor en objetos Npc locales para
+  /// dibujar en el mapa. Si no hay NPCs remotos, limpia la lista local.
+  /// Nota: esto se llama en el cliente cada tick, y el servidor no lo ve ni lo llama.
+  void _syncFromRemoteNpcs(MultiplayerState mpState) {
+    final remoteNpcs = mpState.remoteNpcs;
+    if (remoteNpcs.isEmpty) {
+      if (state.isNotEmpty) state = const [];
+      return;
+    }
+
+    final synced = remoteNpcs.values.map((remote) {
+      final model = CarModel.values.firstWhere(
+        (m) => m.name == remote.carModel,
+        orElse: () => CarModel.sedan,
+      );
+      return Npc(
+        id: remote.id,
+        type: remote.type == 'car' ? NpcType.car : NpcType.person,
+        location: GeoLocation(
+          latitude: remote.position.latitude,
+          longitude: remote.position.longitude,
+        ),
+        rotationAngle: remote.rotation,
+        speed: remote.speed,
+        carColor: remote.carColor,  
+        carModel: model,            
+      );
+    }).toList();
+
+    state = synced;
   }
 
   void _runLocalAiLogic() {
@@ -120,16 +153,12 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     final dt = now.difference(_lastTick).inMicroseconds / 1e6;
     _lastTick = now;
 
-    // Acota dt para evitar teleportaciones si la app estuvo en background.
     final safeDt = dt.clamp(0.0, 0.1);
-
     final playerPos = _ref.read(playerMovementProvider);
     final viewportRadius = _ref.read(viewportRadiusProvider);
 
     final updated = _coordinator.tick(safeDt, playerPos, viewportRadius);
     state = updated;
-
-    _tickCounter++;
 
     if (_tickCounter % 30 == 0) {
       AppLogger.log.d(
@@ -139,10 +168,7 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     }
 
     if (updated.length != _lastReportedCount) {
-      AppLogger.log.i(
-        'NPC count: $_lastReportedCount → ${updated.length} '
-        '(ways=${ways.length})',
-      );
+      AppLogger.log.i('NPC count: $_lastReportedCount → ${updated.length}');
       _lastReportedCount = updated.length;
     }
   }

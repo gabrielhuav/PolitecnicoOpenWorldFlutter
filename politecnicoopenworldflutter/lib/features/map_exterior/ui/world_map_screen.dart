@@ -91,7 +91,12 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   /// Abre el menú de pausa como ruta translúcida (opaque: false).
   /// Solo pausa/reanuda NPCs — NO registra ningún listener aquí.
   Future<void> _openPauseMenu() async {
-    ref.read(npcNotifierProvider.notifier).pause();
+    final isConnected = ref.read(multiplayerProvider).isConnected;
+
+    // Solo pausar el bucle local si estamos en modo Singleplayer
+    if (!isConnected) {
+      ref.read(npcNotifierProvider.notifier).pause();
+    }
     await Navigator.push(
       context,
       PageRouteBuilder(
@@ -105,7 +110,10 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
       ),
     );
     if (!mounted) return;
-    ref.read(npcNotifierProvider.notifier).resume();
+    // Solo reanudar si lo habíamos pausado nosotros
+    if (!isConnected) {
+      ref.read(npcNotifierProvider.notifier).resume();
+    }
   }
 
   @override
@@ -119,6 +127,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
     // TAMBIÉN transmite posición al servidor, SOLO si el jugador
     // está conectado al modo multijugador.
     ref.listen<LatLng>(playerMovementProvider, (prev, next) {
+      if (!mounted) return;
       try {
         _mapController.move(next, _mapController.camera.zoom);
       } catch (_) {}
@@ -160,10 +169,11 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 maxNativeZoom: tileProvider.maxZoom,
               ),
               const NpcMarkerLayer(),
+              const MultiplayerLayer(),
               // Capa de jugadores remotos: solo pinta marcadores cuando
               // hay una sesión multijugador conectada; no hace nada en
               // singleplayer porque players estará vacío.
-              const MultiplayerLayer(),
+              ///const MultiplayerLayer(),
               MarkerLayer(
                 markers: [
                   Marker(
