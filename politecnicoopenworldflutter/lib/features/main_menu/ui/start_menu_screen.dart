@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../ui/theme/theme_extensions.dart';
+import '../../map_exterior/ui/components/multiplayer_screen.dart';
 import '../../settings/ui/app_settings_screen.dart';
 import '../../settings/ui/game_settings_screen.dart';
 import 'character_selection_screen.dart';
@@ -179,13 +180,20 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
     });
   }
 
-  void _showComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Próximamente'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  /// Navega a la pantalla de multijugador.
+  /// MultiplayerScreen gestiona su propia conexión; el singleplayer
+  /// (CharacterSelectionScreen → LoadingScreen → WorldMapScreen) nunca
+  /// toca multiplayerProvider, así que los dos modos son completamente
+  /// independientes.
+  void _goToMultiplayer() {
+    if (_isNavigating) return;
+    setState(() => _isNavigating = true);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MultiplayerScreen()),
+    ).then((_) {
+      if (mounted) setState(() => _isNavigating = false);
+    });
   }
 
   @override
@@ -211,7 +219,8 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
           title: 'Multijugador',
           icon: Icons.people_outline,
           isSecondary: true,
-          onPressed: _isNavigating ? null : _showComingSoon,
+          // Reemplaza el SnackBar de "Próximamente" por la pantalla real.
+          onPressed: _isNavigating ? null : _goToMultiplayer,
         ),
         const SizedBox(height: 15),
         MenuButton(

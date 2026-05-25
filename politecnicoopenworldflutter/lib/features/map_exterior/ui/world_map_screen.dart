@@ -12,7 +12,7 @@ import '../../main_menu/state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
 import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
-import '../state/multiplayer_notifier.dart'; 
+import '../state/multiplayer_notifier.dart';
 import 'components/multiplayer_layer.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
@@ -30,12 +30,7 @@ class WorldMapScreen extends ConsumerStatefulWidget {
 class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   late final MapController _mapController;
 
-  /// Referencia capturada al notifier de NPCs. Se obtiene en
-  /// [didChangeDependencies] y se usa en [dispose] porque para entonces
-  /// el WidgetRef ya está invalidado (lanzaría
-  /// "Cannot use 'ref' after the widget was disposed").
   NpcNotifier? _npcNotifierRef;
-
   ChunkStreamerNotifier? _chunkStreamerRef;
 
   static const double _initialZoom = 17.5;
@@ -79,28 +74,20 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Capturamos la referencia mientras `ref` aún es válido. La usaremos
-    // en dispose() sin tocar el WidgetRef.
     _npcNotifierRef ??= ref.read(npcNotifierProvider.notifier);
     _chunkStreamerRef ??= ref.read(chunkStreamerProvider.notifier);
   }
 
   @override
   void dispose() {
-    // No usar `ref` aquí: el ConsumerStatefulElement ya fue desmontado.
     _npcNotifierRef?.stop();
     _chunkStreamerRef?.stop();
     _mapController.dispose();
     super.dispose();
   }
 
-  /// Abre el menú de pausa como una ruta translúcida (opaque: false) para
-  /// que el mapa y el marcador del jugador sigan visibles detrás del
-  /// overlay, al estilo Minecraft.
-  ///
-  /// Pausa los NPCs al entrar y los reanuda al volver (si no se salió
-  /// al menú principal, en cuyo caso esta pantalla ya estará desmontada
-  /// y el dispose() habrá detenido el bucle).
+  /// Abre el menú de pausa como ruta translúcida (opaque: false).
+  /// Solo pausa/reanuda NPCs — NO registra ningún listener aquí.
   Future<void> _openPauseMenu() async {
     ref.read(npcNotifierProvider.notifier).pause();
     await Navigator.push(
@@ -115,17 +102,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             FadeTransition(opacity: animation, child: child),
       ),
     );
-
-    ref.listen<LatLng>(playerMovementProvider, (prev, next) {
-      try {
-        _mapController.move(next, _mapController.camera.zoom);
-        ref.read(multiplayerProvider.notifier).broadcastMovement(next); // ← agrega esta línea
-      } catch (_) {}
-    });
-    
-    // Si el usuario salió al menú principal, este widget ya estará
-    // desmontado y dispose() habrá llamado a stop(). Solo reanudamos
-    // cuando seguimos vivos (es decir, cerró el menú con "Continuar").
     if (!mounted) return;
     ref.read(npcNotifierProvider.notifier).resume();
   }
@@ -137,10 +113,19 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
     final character = ref.watch(selectedCharacterProvider);
     final tileProvider = ref.watch(mapTileProviderProvider);
 
+    // Mueve la cámara cada vez que el jugador se mueve.
+    // TAMBIÉN transmite posición al servidor, SOLO si el jugador
+    // está conectado al modo multijugador.
     ref.listen<LatLng>(playerMovementProvider, (prev, next) {
       try {
         _mapController.move(next, _mapController.camera.zoom);
       } catch (_) {}
+
+      // Guard: solo broadcast si la sesión multijugador está activa.
+      final mpStatus = ref.read(multiplayerProvider).status;
+      if (mpStatus == MultiplayerStatus.connected) {
+        ref.read(multiplayerProvider.notifier).broadcastMovement(next);
+      }
     });
 
     return Scaffold(
@@ -159,12 +144,11 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                     InteractiveFlag.doubleTapZoom,
               ),
               onPositionChanged: (position, hasGesture) {
-              // En flutter_map 6.x, MapPosition.center y MapPosition.zoom son nullable.
-              final center = position.center;
-              final zoom = position.zoom;
-              if (center == null || zoom == null) return;
-              _publishViewportRadius(center, zoom);
-            },
+                final center = position.center;
+                final zoom = position.zoom;
+                if (center == null || zoom == null) return;
+                _publishViewportRadius(center, zoom);
+              },
             ),
             children: [
               TileLayer(
@@ -174,7 +158,10 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 maxNativeZoom: tileProvider.maxZoom,
               ),
               const NpcMarkerLayer(),
-              
+              // Capa de jugadores remotos: solo pinta marcadores cuando
+              // hay una sesión multijugador conectada; no hace nada en
+              // singleplayer porque players estará vacío.
+              const MultiplayerLayer(),
               MarkerLayer(
                 markers: [
                   Marker(
@@ -189,14 +176,11 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ],
           ),
 
-          // Inside the Stack children in world_map_screen.dart
           Positioned(
             top: 50,
             left: 0,
             right: 0,
-            child: Center(
-              child: const MapStatusIndicator(),
-            ),
+            child: const Center(child: MapStatusIndicator()),
           ),
 
           // Botón menú
@@ -218,14 +202,12 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             top: 50,
             right: 20,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: theme.borderAccent,
-                  width: 1,
-                ),
+                border: Border.all(color: theme.borderAccent, width: 1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -284,7 +266,8 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             right: 6,
             child: IgnorePointer(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(4),
