@@ -62,14 +62,16 @@ class _PlayerSpriteState extends State<PlayerSprite> {
       if (!mounted) return;
 
       final int currentSpeed = widget.playerState.isMoving ? 150 : 1000;
+      final int totalFrames =
+          widget.playerState.isMoving ? _runFramesCount : _idleFramesCount;
+      final int newFrame =
+          (DateTime.now().millisecondsSinceEpoch ~/ currentSpeed) % totalFrames;
 
-      setState(() {
-        final totalFrames =
-            widget.playerState.isMoving ? _runFramesCount : _idleFramesCount;
-        _currentFrame =
-            (DateTime.now().millisecondsSinceEpoch ~/ currentSpeed) %
-                totalFrames;
-      });
+      if (_currentFrame != newFrame) {
+        setState(() {
+          _currentFrame = newFrame;
+        });
+      }
     });
   }
 
