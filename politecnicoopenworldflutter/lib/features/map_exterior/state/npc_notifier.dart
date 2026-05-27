@@ -10,7 +10,7 @@ import '../../../domain/models/ai/npc_ai_coordinator.dart';
 import '../../../domain/models/npc.dart';
 import '../../../domain/models/geo_location.dart';
 import '../../../domain/models/npc_enums.dart';
-import '../../../Multiplayer/multiplayer_notifier.dart';
+import '../../../multiplayer/multiplayer_notifier.dart';
 import 'camera_providers.dart';
 import 'map_providers.dart';
 import 'player_movement_notifier.dart';
