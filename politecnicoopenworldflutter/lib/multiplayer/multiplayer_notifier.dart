@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 
 import '../core/utils/app_logger.dart';
+import '../domain/models/npc.dart';
 
 /// Radio de descarga del mapa en modo multijugador (metros).
 const double kMultiplayerMapRadiusMeters = 30000;
@@ -403,20 +404,20 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
 
   /// Envía los NPCs locales al servidor. SOLO el Host de zona lo llama.
   // En broadcastNpcs(), reemplaza el map actual:
-  void broadcastNpcs(List<dynamic> localNpcs) {
+  void broadcastNpcs(List<Npc> localNpcs) {
     if (!state.isConnected || !state.isZoneHost) return;
 
     final npcList = localNpcs.map((npc) {
       return {
-        'id': npc.id as String,
-        'x': (npc.location.longitude) as double,
-        'y': (npc.location.latitude) as double,
-        'type': (npc.type.name) as String,
-        'rotation': (npc.rotationAngle as double?) ?? 0.0,
-        'speed': (npc.speed as double?) ?? 0.0,
+        'id': npc.id,
+        'x': npc.location.longitude,
+        'y': npc.location.latitude,
+        'type': npc.type.name,
+        'rotation': npc.rotationAngle,
+        'speed': npc.speed,
         // ── NUEVO: datos visuales ──
-        'carColor': npc.carColor as int,
-        'carModel': npc.carModel.name as String,
+        'carColor': npc.carColor,
+        'carModel': npc.carModel.name,
       };
     }).toList();
 
