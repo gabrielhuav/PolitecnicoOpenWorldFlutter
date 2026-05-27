@@ -53,7 +53,7 @@ class ChunkStreamerNotifier extends StateNotifier<ChunkStreamerState> {
 
   static const Distance _dist = Distance();
 
-  ProviderSubscription<LatLng>? _sub;
+  ProviderSubscription<PlayerState>? _sub;
 
   ChunkStreamerNotifier(this._ref) : super(ChunkStreamerState.idle);
 
@@ -63,8 +63,8 @@ class ChunkStreamerNotifier extends StateNotifier<ChunkStreamerState> {
   void start(LatLng initialCenter) {
     if (state.active) return;
     state = state.copyWith(active: true, lastLoadCenter: initialCenter);
-    _sub = _ref.listen<LatLng>(playerMovementProvider, (prev, next) {
-      _maybeExpand(next);
+    _sub = _ref.listen<PlayerState>(playerMovementProvider, (prev, next) {
+      _maybeExpand(next.position);
     });
     AppLogger.log.i(
       'ChunkStreamer iniciado en '

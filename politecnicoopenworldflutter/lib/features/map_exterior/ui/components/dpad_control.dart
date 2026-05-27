@@ -46,6 +46,7 @@ class _DPadControlState extends ConsumerState<DPadControl> {
     if (_active.isEmpty) {
       _ticker?.cancel();
       _ticker = null;
+      ref.read(playerMovementProvider.notifier).stopMovement();
     }
   }
 

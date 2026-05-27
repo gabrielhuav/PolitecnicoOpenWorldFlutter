@@ -234,13 +234,13 @@ class GameMenuScreen extends ConsumerWidget {
     }
 
     // 1. Obtenemos la posición actual exacta del jugador en el mapa
-    final currentPosition = ref.read(playerMovementProvider);
+    final PlayerState = ref.read(playerMovementProvider);
 
     try {
       // 2. Invocamos al notifier para actualizar la BD local de SQLite en segundo plano
       await ref.read(activeGameSessionProvider.notifier).saveCurrentPosition(
-            currentPosition.latitude,
-            currentPosition.longitude,
+            PlayerState.position.latitude,
+            PlayerState.position.longitude,
           );
 
       // Esto borra la caché de la RAM y fuerza a que la próxima vez que entres

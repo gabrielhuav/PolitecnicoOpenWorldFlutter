@@ -17,6 +17,7 @@ import '../../../../Multiplayer/multiplayer_layer.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
 import 'components/map_status_indicator.dart';
+import 'components/player_sprite.dart';
 
 import 'game_menu_screen.dart';
 
@@ -64,14 +65,12 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
     _mapController = MapController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final initialCenter = ref.read(playerMovementProvider);
+      final initialCenter = ref.read(playerMovementProvider).position;
       _publishViewportRadius(initialCenter, _initialZoom);
       ref.read(npcNotifierProvider.notifier).start();
       ref.read(chunkStreamerProvider.notifier).start(initialCenter);
     });
   }
-
-  
 
   @override
   void didChangeDependencies() {
@@ -119,23 +118,25 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = ref.appTheme;
-    final playerPosition = ref.watch(playerMovementProvider);
+    final playerState = ref.watch(playerMovementProvider);
+    final playerPosition = playerState.position;
+
     final character = ref.watch(selectedCharacterProvider);
     final tileProvider = ref.watch(mapTileProviderProvider);
 
     // Mueve la cámara cada vez que el jugador se mueve.
     // TAMBIÉN transmite posición al servidor, SOLO si el jugador
     // está conectado al modo multijugador.
-    ref.listen<LatLng>(playerMovementProvider, (prev, next) {
+    ref.listen<PlayerState>(playerMovementProvider, (prev, next) {
       if (!mounted) return;
       try {
-        _mapController.move(next, _mapController.camera.zoom);
+        _mapController.move(next.position, _mapController.camera.zoom);
       } catch (_) {}
 
       // Guard: solo broadcast si la sesión multijugador está activa.
       final mpStatus = ref.read(multiplayerProvider).status;
       if (mpStatus == MultiplayerStatus.connected) {
-        ref.read(multiplayerProvider.notifier).broadcastMovement(next);
+        ref.read(multiplayerProvider.notifier).broadcastMovement(next.position);
       }
     });
 
@@ -170,10 +171,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
               ),
               const NpcMarkerLayer(),
               const MultiplayerLayer(),
-              // Capa de jugadores remotos: solo pinta marcadores cuando
-              // hay una sesión multijugador conectada; no hace nada en
-              // singleplayer porque players estará vacío.
-              ///const MultiplayerLayer(),
               MarkerLayer(
                 markers: [
                   Marker(
@@ -181,7 +178,14 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                     width: 56,
                     height: 56,
                     alignment: Alignment.center,
-                    child: _PlayerMarker(theme: theme),
+                    child: _PlayerMarker(
+                      theme: theme,
+                      playerState: playerState,
+                      // LEEMOS DIRECTAMENTE EL CAMPO DEL MODELO.
+                      // Si no está definido (por ejemplo, slots sin configurar), usa la aventurera de respaldo.
+                      spritesheetPath: character.spritesheetPath ??
+                          'assets/character/move_character/spiritiesheet-aventurera.png',
+                    ),
                   ),
                 ],
               ),
@@ -214,8 +218,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             top: 50,
             right: 20,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(10),
@@ -278,8 +281,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             right: 6,
             child: IgnorePointer(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(4),
@@ -303,37 +305,39 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
 
 class _PlayerMarker extends StatelessWidget {
   final AppTheme theme;
-  const _PlayerMarker({required this.theme});
+  final PlayerState playerState;
+  final String spritesheetPath;
+
+  const _PlayerMarker({
+    required this.theme,
+    required this.playerState,
+    required this.spritesheetPath,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       alignment: Alignment.center,
+      clipBehavior: Clip.none,
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: theme.accentSecondary.withValues(alpha: 0.25),
-            shape: BoxShape.circle,
+        Positioned(
+          bottom: -3,
+          child: Container(
+            width: 25,
+            height: 12,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         ),
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: theme.buttonPrimary,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 3),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black45,
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-            ],
+        SizedBox(
+          width: 56,
+          height: 56,
+          child: PlayerSprite(
+            playerState: playerState,
+            spritesheetPath: spritesheetPath,
           ),
-          child: const Icon(Icons.person, color: Colors.white, size: 18),
         ),
       ],
     );

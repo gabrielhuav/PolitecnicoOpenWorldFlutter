@@ -44,6 +44,7 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     _ticker?.cancel();
     _ticker = null;
     _coordinator.clear();
+
     ///if (mounted) state = const [];
     AppLogger.log.i('NpcNotifier: bucle detenido');
   }
@@ -135,8 +136,8 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
         ),
         rotationAngle: remote.rotation,
         speed: remote.speed,
-        carColor: remote.carColor,  
-        carModel: model,            
+        carColor: remote.carColor,
+        carModel: model,
       );
     }).toList();
 
@@ -154,7 +155,7 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     _lastTick = now;
 
     final safeDt = dt.clamp(0.0, 0.1);
-    final playerPos = _ref.read(playerMovementProvider);
+    final playerPos = _ref.read(playerMovementProvider).position;
     final viewportRadius = _ref.read(viewportRadiusProvider);
 
     final updated = _coordinator.tick(safeDt, playerPos, viewportRadius);

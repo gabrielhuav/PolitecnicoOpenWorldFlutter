@@ -97,6 +97,9 @@ class _JoystickControlState extends ConsumerState<JoystickControl>
     _activePointerId = null;
     _ticker?.cancel();
     _ticker = null;
+
+    ref.read(playerMovementProvider.notifier).stopMovement();
+
     _returnFrom = _stickOffset;
     _returnController.forward(from: 0);
   }

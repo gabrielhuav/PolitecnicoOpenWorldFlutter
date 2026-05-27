@@ -10,6 +10,8 @@ final availableCharactersProvider = Provider<List<Character>>((ref) {
       description: 'Exploradora clásica del Politécnico',
       visualConfig: CharacterVisualConfig.adventurer,
       imagePath: 'assets/character/select_character/aventurera.png',
+      spritesheetPath:
+          'assets/character/move_character/spiritiesheet-aventurera.png',
     ),
     Character(
       id: 'char_explorador',
