@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Importa tu provider real del mapa
 import '../../state/map_providers.dart';
+import '../../../../data/repository/map_repository_impl.dart';
 
 class MapStatusIndicator extends ConsumerWidget {
   const MapStatusIndicator({super.key});
@@ -17,18 +18,25 @@ class MapStatusIndicator extends ConsumerWidget {
     String text;
     Color color;
 
-    // Lógica para determinar qué mostrar basado en WorldMapProvider
+    // Lógica para determinar qué mostrar basado en la fase de carga
     if (mapState.isLoading) {
-      // Si el texto de estado contiene 'Descargando', estamos bajando de Overpass
-      if (progress.status.contains('Descargando')) {
-        icon = Icons.cloud_download;
-        text = 'Descargando mundo... ${(progress.fraction * 100).toInt()}%';
-        color = Colors.orangeAccent;
-      } else {
-        // Puede estar inicializando o leyendo desde la base de datos local (RoadZoneDao)
-        icon = Icons.storage;
-        text = progress.status; // Mostrará 'Cargando desde caché...'
-        color = Colors.yellowAccent;
+      switch (progress.phase) {
+        case MapLoadPhase.downloading:
+          icon = Icons.cloud_download;
+          text = 'Descargando mundo... ${(progress.fraction * 100).toInt()}%';
+          color = Colors.orangeAccent;
+        case MapLoadPhase.cached:
+          icon = Icons.storage;
+          text = progress.status;
+          color = Colors.yellowAccent;
+        case MapLoadPhase.idle:
+          icon = Icons.storage;
+          text = progress.status;
+          color = Colors.yellowAccent;
+        case MapLoadPhase.done:
+          icon = Icons.cloud_done;
+          text = progress.status;
+          color = Colors.greenAccent;
       }
     } else if (mapState.errorMessage != null) {
       // Manejo de errores

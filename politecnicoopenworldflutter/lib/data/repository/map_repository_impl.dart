@@ -6,6 +6,14 @@ import '../../domain/models/map_way.dart';
 import '../local/dao/road_zone_dao.dart';
 import '../network/overpass_repository.dart';
 
+/// Fase del proceso de carga del mapa
+enum MapLoadPhase {
+  idle,
+  cached,
+  downloading,
+  done,
+}
+
 /// Estado intermedio que el repositorio reporta hacia arriba mientras
 /// descarga celdas. La UI lo usa para mostrar progreso en la pantalla
 /// de carga.
@@ -16,6 +24,7 @@ class MapLoadProgress {
   final int currentBatchIndex;
   final int totalBatches;
   final String status;
+  final MapLoadPhase phase;
 
   const MapLoadProgress({
     required this.totalCells,
@@ -24,6 +33,7 @@ class MapLoadProgress {
     required this.currentBatchIndex,
     required this.totalBatches,
     required this.status,
+    required this.phase,
   });
 
   double get fraction => totalCells == 0
@@ -37,6 +47,7 @@ class MapLoadProgress {
         currentBatchIndex: 0,
         totalBatches: 0,
         status: 'Inicializando...',
+        phase: MapLoadPhase.idle,
       );
 }
 
@@ -95,6 +106,7 @@ class MapRepository {
       status: batches.isEmpty
           ? 'Cargando desde caché...'
           : 'Descargando datos del mundo...',
+      phase: batches.isEmpty ? MapLoadPhase.cached : MapLoadPhase.downloading,
     ));
 
     // 3) Descargar batch a batch, persistir, reportar.
@@ -133,6 +145,7 @@ class MapRepository {
         currentBatchIndex: i + 1,
         totalBatches: batches.length,
         status: 'Descargando datos del mundo...',
+        phase: MapLoadPhase.downloading,
       ));
       if (i < batches.length - 1) {
         await Future<void>.delayed(_throttleBetweenBatches);
@@ -149,6 +162,7 @@ class MapRepository {
       currentBatchIndex: batches.length,
       totalBatches: batches.length,
       status: 'Listo (${result.length} vías)',
+      phase: MapLoadPhase.done,
     ));
     AppLogger.log.i('MapRepository: ${result.length} ways listas en memoria');
     return result;
