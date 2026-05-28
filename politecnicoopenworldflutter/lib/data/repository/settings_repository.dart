@@ -70,7 +70,7 @@ class SettingsRepository {
 
   // Multijugador
   String get multiplayerServerUrl =>
-      _prefs.getString('multiplayer_server_url') ?? 'wss://politecnicoopenworld.onrender.com';
+      _prefs.getString('multiplayer_server_url') ?? 'wss://politecnicoopenworldflutter.onrender.com/flutter';
   Future<void> setMultiplayerServerUrl(String value) =>
       _prefs.setString('multiplayer_server_url', value);
 }

@@ -15,7 +15,7 @@ const double kMultiplayerMapRadiusMeters = 30000;
 
 /// URL del servidor propio en Render.
 const String kDefaultMultiplayerServerUrl =
-    'wss://pow-flutter-multiplayer.onrender.com/flutter';
+    'wss://politecnicoopenworldflutter.onrender.com/flutter';
 
 final multiplayerServerUrlProvider =
     StateProvider<String>((ref) => kDefaultMultiplayerServerUrl);
