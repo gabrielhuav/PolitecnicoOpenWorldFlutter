@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../ui/theme/theme_extensions.dart';
-import '../../../../multiplayer/multiplayer_screen.dart';
 import '../../settings/ui/app_settings_screen.dart';
 import '../../settings/ui/game_settings_screen.dart';
 import 'character_selection_screen.dart';
 import 'components/menu_button.dart';
 import 'load_game_screen.dart';
+import '../../../multiplayer/ui/multiplayer_screen.dart';
 
 class StartMenuScreen extends ConsumerWidget {
   const StartMenuScreen({Key? key}) : super(key: key);
 
-  @override
+  @override 
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.appTheme;
 
@@ -180,16 +180,13 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
     });
   }
 
-  /// Navega a la pantalla de multijugador.
-  /// MultiplayerScreen gestiona su propia conexión; el singleplayer
-  /// (CharacterSelectionScreen → LoadingScreen → WorldMapScreen) nunca
-  /// toca multiplayerProvider, así que los dos modos son completamente
-  /// independientes.
   void _goToMultiplayer() {
     if (_isNavigating) return;
     setState(() => _isNavigating = true);
     Navigator.push(
       context,
+      // MultiplayerScreen ya está importada arriba; gestiona su propio
+      // WebSocket → no toca nada del singleplayer.
       MaterialPageRoute(builder: (_) => const MultiplayerScreen()),
     ).then((_) {
       if (mounted) setState(() => _isNavigating = false);
@@ -219,7 +216,6 @@ class _ActionButtonsState extends ConsumerState<_ActionButtons> {
           title: 'Multijugador',
           icon: Icons.people_outline,
           isSecondary: true,
-          // Reemplaza el SnackBar de "Próximamente" por la pantalla real.
           onPressed: _isNavigating ? null : _goToMultiplayer,
         ),
         const SizedBox(height: 15),

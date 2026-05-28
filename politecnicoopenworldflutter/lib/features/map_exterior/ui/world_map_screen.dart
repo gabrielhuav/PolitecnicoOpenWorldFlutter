@@ -13,7 +13,8 @@ import '../state/player_movement_notifier.dart';
 import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
 import '../../../../multiplayer/multiplayer_notifier.dart';
-import '../../../../multiplayer/multiplayer_layer.dart';
+import '../state/combat_notifier.dart';
+import 'components/health_bar.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
 import 'components/map_status_indicator.dart';
@@ -133,10 +134,15 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
         _mapController.move(next.position, _mapController.camera.zoom);
       } catch (_) {}
 
-      // Guard: solo broadcast si la sesión multijugador está activa.
-      final mpStatus = ref.read(multiplayerProvider).status;
-      if (mpStatus == MultiplayerStatus.connected) {
-        ref.read(multiplayerProvider.notifier).broadcastMovement(next.position);
+      // Broadcast SOLO en multijugador. El singleplayer ni se entera.
+      final mp = ref.read(multiplayerProvider);
+      if (mp.status == MultiplayerStatus.connected) {
+        ref.read(multiplayerProvider.notifier).broadcastMovement(
+              next.position,
+              action: next.isMoving ? 'walk' : 'idle',
+              facingRight: next.facing == PlayerDirection.right,
+              isDriving: false,
+        );
       }
     });
 
@@ -170,7 +176,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 maxNativeZoom: tileProvider.maxZoom,
               ),
               const NpcMarkerLayer(),
-              const MultiplayerLayer(),
               MarkerLayer(
                 markers: [
                   Marker(
@@ -249,6 +254,12 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 ],
               ),
             ),
+          ),
+
+          Positioned(
+            top: 110,
+            right: 20,
+            child: const HealthBar(),
           ),
 
           // Recentrar

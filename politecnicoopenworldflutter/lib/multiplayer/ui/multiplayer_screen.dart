@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/utils/providers.dart';
-import '../features/main_menu/state/character_provider.dart';
-import '../features/map_exterior/ui/loading_screen.dart';
-import '../features/map_exterior/state/location_providers.dart';
-import 'multiplayer_notifier.dart';
+import '../../core/utils/providers.dart';
+import '../../features/main_menu/state/character_provider.dart';
+import '../../features/map_exterior/ui/loading_screen.dart';
+import '../../features/map_exterior/state/location_providers.dart';
+import '../multiplayer_notifier.dart';
 
 /// Pantalla de multijugador.
 /// Muestra un campo para ingresar el nombre visible antes de conectarse,
@@ -20,17 +20,12 @@ class MultiplayerScreen extends ConsumerStatefulWidget {
 class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
   bool _navigating = false;
 
-  /// Controlador del campo de nombre. Se pre-llena con el nombre del
-  /// personaje seleccionado (o con el último nombre usado si ya hay uno
-  /// guardado en el estado del notifier).
   late final TextEditingController _nameController;
   final _nameFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    // Usa el nombre del estado actual si ya lo escribió antes en esta sesión,
-    // o el nombre del personaje como sugerencia inicial.
     final existingName = ref.read(multiplayerProvider).playerName;
     final characterName = ref.read(selectedCharacterProvider).name;
     _nameController = TextEditingController(
@@ -47,10 +42,11 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
 
   String get _trimmedName => _nameController.text.trim();
 
+  /// Conecta al servidor y se queda en esta pantalla para que el usuario
+  /// vea el estado "¡Conectado!" y pulse "Entrar al mapa" cuando quiera.
   Future<void> _connect() async {
     if (_navigating) return;
 
-    // Cerrar teclado antes de conectar.
     _nameFocusNode.unfocus();
 
     final name = _trimmedName.isNotEmpty
@@ -64,17 +60,24 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
           playerName: name,
         );
 
-    if (!mounted) return;
-    final status = ref.read(multiplayerProvider).status;
-    if (status == MultiplayerStatus.error) return;
+    // Sin navegación automática: el build() detecta el cambio de estado
+    // y el botón pasa a "Entrar al mapa". El usuario decide cuándo entrar.
+  }
 
-    // Emitir posición inicial para que otros jugadores nos vean
+  void _disconnect() =>
+      ref.read(multiplayerProvider.notifier).disconnect();
+
+  Future<void> _navigateToMap() async {
+    if (_navigating) return;
+
+    // Emitir posición inicial para que otros jugadores nos vean de inmediato.
     final locationService = ref.read(locationServiceProvider);
     final currentLatLng = await locationService.getCurrent();
     if (currentLatLng != null) {
       ref.read(multiplayerProvider.notifier).broadcastMovement(currentLatLng);
     }
 
+    if (!mounted) return;
     setState(() => _navigating = true);
     Navigator.pushReplacement(
       context,
@@ -83,9 +86,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
       ),
     );
   }
-
-  void _disconnect() =>
-      ref.read(multiplayerProvider.notifier).disconnect();
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +96,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
-      // GestureDetector para cerrar el teclado al tocar fuera.
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
@@ -153,7 +152,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Subtítulo / descripción
+                        // Subtítulo
                         Text(
                           _statusSubtitle(mpState.status),
                           style: const TextStyle(
@@ -163,8 +162,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           textAlign: TextAlign.center,
                         ),
 
-                        // ── CAMPO DE NOMBRE ──────────────────────────
-                        // Solo visible cuando no está conectado todavía.
+                        // Campo de nombre (solo cuando no está conectado)
                         if (!isConnected) ...[
                           const SizedBox(height: 28),
                           _NameField(
@@ -174,20 +172,18 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           ),
                         ],
 
-                        // Chips informativos cuando está conectado
+                        // Chips cuando está conectado
                         if (isConnected) ...[
                           const SizedBox(height: 20),
-                          // Muestra el nombre con el que se conectó
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color:
-                                  Colors.tealAccent.withValues(alpha: 0.10),
+                              color: Colors.tealAccent.withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                  color: Colors.tealAccent
-                                      .withValues(alpha: 0.4)),
+                                  color:
+                                      Colors.tealAccent.withValues(alpha: 0.4)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -215,8 +211,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                               if (mpState.players.isNotEmpty)
                                 _Chip(
                                   icon: Icons.people_rounded,
-                                  label:
-                                      '${mpState.players.length} en línea',
+                                  label: '${mpState.players.length} en línea',
                                   color: Colors.greenAccent,
                                 ),
                               _Chip(
@@ -233,8 +228,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                               if (mpState.remoteNpcs.isNotEmpty)
                                 _Chip(
                                   icon: Icons.directions_car_rounded,
-                                  label:
-                                      '${mpState.remoteNpcs.length} NPCs',
+                                  label: '${mpState.remoteNpcs.length} NPCs',
                                   color: Colors.lightBlueAccent,
                                 ),
                             ],
@@ -267,7 +261,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
 
                         const SizedBox(height: 40),
 
-                        // ── BOTÓN PRINCIPAL ──────────────────────────
+                        // ── Botón principal ──────────────────────────
                         SizedBox(
                           width: double.infinity,
                           height: 54,
@@ -335,13 +329,11 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                             height: 46,
                             child: OutlinedButton.icon(
                               onPressed: _disconnect,
-                              icon:
-                                  const Icon(Icons.logout, size: 18),
+                              icon: const Icon(Icons.logout, size: 18),
                               label: const Text('Desconectar'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.white60,
-                                side: const BorderSide(
-                                    color: Colors.white24),
+                                side: const BorderSide(color: Colors.white24),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -357,22 +349,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Future<void> _navigateToMap() async {
-    if (_navigating) return;
-    final locationService = ref.read(locationServiceProvider);
-    final currentLatLng = await locationService.getCurrent();
-    if (currentLatLng != null) {
-      ref.read(multiplayerProvider.notifier).broadcastMovement(currentLatLng);
-    }
-    setState(() => _navigating = true);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const LoadingScreen(isResuming: false),
       ),
     );
   }

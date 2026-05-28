@@ -8,15 +8,14 @@ import 'package:web_socket_channel/io.dart';
 
 import '../core/utils/app_logger.dart';
 import '../domain/models/npc.dart';
+import '../features/map_exterior/state/player_health_notifier.dart';
 
 /// Radio de descarga del mapa en modo multijugador (metros).
 const double kMultiplayerMapRadiusMeters = 30000;
 
-/// URL base del servidor. El path /flutter asegura que Flutter NO comparte
-/// sala con la versión Android (que se conecta a la raíz /), evitando
-/// conflictos de protocolo y NPCs duplicados entre plataformas.
+/// URL del servidor propio en Render.
 const String kDefaultMultiplayerServerUrl =
-    'wss://politecnicoopenworld.onrender.com/flutter';
+    'wss://pow-flutter-multiplayer.onrender.com/flutter';
 
 final multiplayerServerUrlProvider =
     StateProvider<String>((ref) => kDefaultMultiplayerServerUrl);
@@ -28,6 +27,9 @@ class RemotePlayer {
   final String displayName;
   final bool isHost;
   final bool isDriving;
+  final String action;
+  final bool facingRight;
+  final double health;
 
   const RemotePlayer({
     required this.id,
@@ -35,6 +37,9 @@ class RemotePlayer {
     required this.displayName,
     this.isHost = false,
     this.isDriving = false,
+    this.action = 'idle',
+    this.facingRight = true,
+    this.health = 100,
   });
 
   RemotePlayer copyWith({
@@ -42,6 +47,9 @@ class RemotePlayer {
     String? displayName,
     bool? isHost,
     bool? isDriving,
+    String? action,
+    bool? facingRight,
+    double? health,
   }) =>
       RemotePlayer(
         id: id,
@@ -49,6 +57,9 @@ class RemotePlayer {
         displayName: displayName ?? this.displayName,
         isHost: isHost ?? this.isHost,
         isDriving: isDriving ?? this.isDriving,
+        action: action ?? this.action,
+        facingRight: facingRight ?? this.facingRight,
+        health: health ?? this.health,
       );
 }
 
@@ -59,8 +70,9 @@ class RemoteNpc {
   final String type;
   final double rotation;
   final double speed;
-  final int carColor;      
-  final String carModel;   
+  final int carColor;
+  final String carModel;
+  final String? ownerId;
 
   const RemoteNpc({
     required this.id,
@@ -68,8 +80,9 @@ class RemoteNpc {
     required this.type,
     this.rotation = 0,
     this.speed = 0,
-    this.carColor = 0xFFFFFFFF,   
-    this.carModel = 'sedan',      
+    this.carColor = 0xFFFFFFFF,
+    this.carModel = 'sedan',
+    this.ownerId,
   });
 }
 
@@ -128,10 +141,15 @@ class MultiplayerState {
 
 // ── Notifier ────────────────────────────────────────────────────────
 class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
-  MultiplayerNotifier() : super(MultiplayerState.initial());
+  final Ref _ref;
+  MultiplayerNotifier(this._ref) : super(MultiplayerState.initial());
 
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _sub;
+
+  String _lastAction = 'idle';
+  bool _lastFacingRight = true;
+  bool _lastIsDriving = false;
 
   Future<void> connect({
     required String serverUrl,
@@ -180,8 +198,16 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     }
   }
 
-  void broadcastMovement(LatLng pos) {
+  void broadcastMovement(
+    LatLng pos, {
+    String action = 'walk',
+    bool facingRight = true,
+    bool isDriving = false,
+  }) {
     if (!state.isConnected) return;
+    _lastAction = action;
+    _lastFacingRight = facingRight;
+    _lastIsDriving = isDriving;
     _sendJson({
       'type': 'PLAYER_UPDATE',
       'x': pos.longitude,
@@ -189,9 +215,43 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
       'displayName': state.playerName.isNotEmpty
           ? state.playerName
           : 'Jugador Flutter',
-      'action': 'idle',
-      'facingRight': true,
-      'isDriving': false,
+      'action': action,
+      'facingRight': facingRight,
+      'isDriving': isDriving,
+      'health': _ref.read(playerHealthProvider).health,
+    });
+  }
+
+  void broadcastNpcs(List<Npc> localNpcs) {
+    if (!state.isConnected || !state.isZoneHost) return;
+
+    final myId = state.sessionId;
+    final npcList = localNpcs.map((npc) {
+      return {
+        'id': npc.id,
+        'x': npc.location.longitude,
+        'y': npc.location.latitude,
+        'type': npc.type.name,
+        'rotation': npc.rotationAngle,
+        'speed': npc.speed,
+        'carColor': npc.carColor,
+        'carModel': npc.carModel.name,
+        'ownerId': myId,
+      };
+    }).toList();
+
+    _sendJson({
+      'type': 'NPC_BATCH_UPDATE',
+      'npcs': npcList,
+    });
+  }
+
+  void sendPlayerDamage(String targetId, double damage) {
+    if (!state.isConnected) return;
+    _sendJson({
+      'type': 'PLAYER_DAMAGE',
+      'targetId': targetId,
+      'damage': damage,
     });
   }
 
@@ -227,90 +287,30 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
           AppLogger.log.d('Multiplayer: ROLE_UPDATE isHost=$isHost');
 
         case 'DISCONNECT':
-          final id = data['id'] as String?;
-          final orphans = data['orphanedNpcs'];
-          var players = state.players;
-          var npcs = state.remoteNpcs;
-          if (id != null && players.containsKey(id)) {
-            final updated = Map<String, RemotePlayer>.from(players)
-              ..remove(id);
-            players = updated;
-            AppLogger.log.i('Multiplayer: salió $id');
-          }
-          if (orphans is List) {
-            final updated = Map<String, RemoteNpc>.from(npcs);
-            for (final o in orphans) {
-              if (o is String) updated.remove(o);
-            }
-            npcs = updated;
-          }
-          state = state.copyWith(players: players, remoteNpcs: npcs);
+          _handleDisconnect(data);
 
         case 'SYNC_ALL_NPCS':
-          final list = data['npcs'];
-          if (list is List) {
-            final npcs = <String, RemoteNpc>{};
-            for (final n in list) {
-              if (n is Map) {
-                final npc = _parseNpc(Map<String, dynamic>.from(n));
-                if (npc != null) npcs[npc.id] = npc;
-              }
-            }
-            state = state.copyWith(remoteNpcs: npcs);
-            AppLogger.log
-                .i('Multiplayer: SYNC_ALL_NPCS ${npcs.length} NPCs');
-          }
+          _handleSyncAllNpcs(data);
 
         case 'NPC_SPAWN':
         case 'NPC_UPDATE':
-          final n = data['npc'];
-          if (n is Map) {
-            final npc = _parseNpc(Map<String, dynamic>.from(n));
-            if (npc != null) {
-              final npcs =
-                  Map<String, RemoteNpc>.from(state.remoteNpcs);
-              npcs[npc.id] = npc;
-              state = state.copyWith(remoteNpcs: npcs);
-            }
-          }
+          _handleSingleNpc(data);
 
         case 'NPC_BATCH_UPDATE':
-          final list = data['npcs'];
-          if (list is List) {
-            final incomingIds = <String>{};
-            final npcs =
-                Map<String, RemoteNpc>.from(state.remoteNpcs);
-            
-            for (final n in list) {
-              if (n is Map) {
-                final npc = _parseNpc(Map<String, dynamic>.from(n));
-                if (npc != null) {
-                  npcs[npc.id] = npc;
-                  incomingIds.add(npc.id);
-                }
-              }
-            }
-            // Elimina NPCs que ya no están en la lista entrante:
-            npcs.removeWhere((id, _) => !incomingIds.contains(id));
-            state = state.copyWith(remoteNpcs: npcs);
-          }
+          _handleBatchNpcs(data);
 
         case 'NPC_DESTROY':
-          final id = data['npcId'] as String?;
-          if (id != null && state.remoteNpcs.containsKey(id)) {
-            final npcs =
-                Map<String, RemoteNpc>.from(state.remoteNpcs)
-                  ..remove(id);
-            state = state.copyWith(remoteNpcs: npcs);
-          }
+          _handleNpcDestroy(data);
 
         case 'PLAYER_UPDATE':
         case null:
           _handleRemotePlayerUpdate(data);
 
         case 'MASTER_SYNC_CHECK':
+          _handleMasterSyncCheck(data);
+
         case 'PLAYER_DAMAGE':
-          break;
+          _handlePlayerDamage(data);
 
         default:
           AppLogger.log.d('Multiplayer: tipo desconocido $type');
@@ -320,15 +320,112 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     }
   }
 
+  // ── Handlers ──────────────────────────────────────────────────────
+
+  void _handleDisconnect(Map<String, dynamic> data) {
+    final id = data['id'] as String?;
+    final orphans = data['orphanedNpcs'];
+    var players = state.players;
+    var npcs = state.remoteNpcs;
+
+    if (id != null && players.containsKey(id)) {
+      final updated = Map<String, RemotePlayer>.from(players)..remove(id);
+      players = updated;
+      AppLogger.log.i('Multiplayer: salió $id');
+    }
+    if (orphans is List) {
+      final updated = Map<String, RemoteNpc>.from(npcs);
+      for (final o in orphans) {
+        if (o is String) updated.remove(o);
+      }
+      npcs = updated;
+    }
+    state = state.copyWith(players: players, remoteNpcs: npcs);
+  }
+
+  void _handleSyncAllNpcs(Map<String, dynamic> data) {
+    final list = data['npcs'];
+    if (list is! List) return;
+    final myId = state.sessionId;
+    final npcs = <String, RemoteNpc>{};
+    for (final n in list) {
+      if (n is! Map) continue;
+      final parsed = _parseNpc(Map<String, dynamic>.from(n));
+      if (parsed == null) continue;
+      if (parsed.ownerId != null && parsed.ownerId == myId) continue;
+      npcs[parsed.id] = parsed;
+    }
+    state = state.copyWith(remoteNpcs: npcs);
+    AppLogger.log.i('Multiplayer: SYNC_ALL_NPCS ${npcs.length} NPCs');
+  }
+
+  void _handleSingleNpc(Map<String, dynamic> data) {
+    final n = data['npc'];
+    if (n is! Map) return;
+    final parsed = _parseNpc(Map<String, dynamic>.from(n));
+    if (parsed == null) return;
+    if (parsed.ownerId != null && parsed.ownerId == state.sessionId) return;
+    final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs);
+    npcs[parsed.id] = parsed;
+    state = state.copyWith(remoteNpcs: npcs);
+  }
+
+  void _handleBatchNpcs(Map<String, dynamic> data) {
+    final list = data['npcs'];
+    if (list is! List) return;
+    final myId = state.sessionId;
+    final incomingIds = <String>{};
+    final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs);
+
+    String? batchOwner;
+    for (final n in list) {
+      if (n is Map) {
+        final candidate = n['ownerId'];
+        if (candidate is String) {
+          batchOwner = candidate;
+          break;
+        }
+      }
+    }
+
+    for (final n in list) {
+      if (n is! Map) continue;
+      final parsed = _parseNpc(Map<String, dynamic>.from(n));
+      if (parsed == null) continue;
+      if (parsed.ownerId == myId) continue;
+      npcs[parsed.id] = parsed;
+      incomingIds.add(parsed.id);
+    }
+
+    if (batchOwner != null) {
+      npcs.removeWhere((id, npc) =>
+          npc.ownerId == batchOwner && !incomingIds.contains(id));
+    }
+
+    state = state.copyWith(remoteNpcs: npcs);
+  }
+
+  void _handleNpcDestroy(Map<String, dynamic> data) {
+    final id = data['npcId'] as String?;
+    if (id != null && state.remoteNpcs.containsKey(id)) {
+      final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs)..remove(id);
+      state = state.copyWith(remoteNpcs: npcs);
+    }
+  }
+
   void _handleRemotePlayerUpdate(Map<String, dynamic> data) {
     final id = data['id'] as String?;
     if (id == null || id == state.sessionId) return;
     final x = (data['x'] as num?)?.toDouble();
     final y = (data['y'] as num?)?.toDouble();
     if (x == null || y == null) return;
+
     final displayName = data['displayName'] as String? ?? 'Jugador';
     final isHost = data['isHost'] as bool? ?? false;
     final isDriving = data['isDriving'] as bool? ?? false;
+    final action = data['action'] as String? ?? 'idle';
+    final facingRight = data['facingRight'] as bool? ?? true;
+    final health = (data['health'] as num?)?.toDouble() ?? 100;
 
     final pos = LatLng(y, x);
     final updated = Map<String, RemotePlayer>.from(state.players);
@@ -340,6 +437,9 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         displayName: displayName,
         isHost: isHost,
         isDriving: isDriving,
+        action: action,
+        facingRight: facingRight,
+        health: health,
       );
       AppLogger.log.i('Multiplayer: nuevo remoto $id ($displayName)');
     } else {
@@ -348,9 +448,40 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         displayName: displayName,
         isHost: isHost,
         isDriving: isDriving,
+        action: action,
+        facingRight: facingRight,
+        health: health,
       );
     }
     state = state.copyWith(players: updated);
+  }
+
+  void _handleMasterSyncCheck(Map<String, dynamic> data) {
+    final ids = data['activeNpcIds'];
+    if (ids is! List) return;
+    final officialSet = ids.whereType<String>().toSet();
+    final filtered = <String, RemoteNpc>{};
+    for (final entry in state.remoteNpcs.entries) {
+      if (officialSet.contains(entry.key)) {
+        filtered[entry.key] = entry.value;
+      }
+    }
+    if (filtered.length != state.remoteNpcs.length) {
+      AppLogger.log.d(
+        'Multiplayer: SYNC_CHECK depuró '
+        '${state.remoteNpcs.length - filtered.length} fantasmas',
+      );
+      state = state.copyWith(remoteNpcs: filtered);
+    }
+  }
+
+  void _handlePlayerDamage(Map<String, dynamic> data) {
+    final targetId = data['targetId'] as String?;
+    if (targetId == null || targetId != state.sessionId) return;
+    final damage = (data['damage'] as num?)?.toDouble() ?? 0;
+    if (damage <= 0) return;
+    _ref.read(playerHealthProvider.notifier).takeDamage(damage);
+    AppLogger.log.i('Multiplayer: recibí daño de $damage');
   }
 
   RemoteNpc? _parseNpc(Map<String, dynamic> data) {
@@ -364,10 +495,10 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         (data['vehicleRotation'] as num?)?.toDouble() ??
         (data['rotationAngle'] as num?)?.toDouble() ??
         0.0;
-
     final speed = (data['speed'] as num?)?.toDouble() ?? 0.0;
     final carColor = (data['carColor'] as int?) ?? 0xFFFFFFFF;
     final carModel = (data['carModel'] as String?) ?? 'sedan';
+    final ownerId = data['ownerId'] as String?;
 
     return RemoteNpc(
       id: id,
@@ -377,6 +508,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
       speed: speed,
       carColor: carColor,
       carModel: carModel,
+      ownerId: ownerId,
     );
   }
 
@@ -402,31 +534,6 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     }
   }
 
-  /// Envía los NPCs locales al servidor. SOLO el Host de zona lo llama.
-  // En broadcastNpcs(), reemplaza el map actual:
-  void broadcastNpcs(List<Npc> localNpcs) {
-    if (!state.isConnected || !state.isZoneHost) return;
-
-    final npcList = localNpcs.map((npc) {
-      return {
-        'id': npc.id,
-        'x': npc.location.longitude,
-        'y': npc.location.latitude,
-        'type': npc.type.name,
-        'rotation': npc.rotationAngle,
-        'speed': npc.speed,
-        // ── NUEVO: datos visuales ──
-        'carColor': npc.carColor,
-        'carModel': npc.carModel.name,
-      };
-    }).toList();
-
-    _sendJson({
-      'type': 'NPC_BATCH_UPDATE',
-      'npcs': npcList,
-    });
-  }
-
   void _sendJson(Map<String, dynamic> data) {
     try {
       _channel?.sink.add(jsonEncode(data));
@@ -444,5 +551,5 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
 
 final multiplayerProvider =
     StateNotifierProvider<MultiplayerNotifier, MultiplayerState>(
-  (ref) => MultiplayerNotifier(),
+  (ref) => MultiplayerNotifier(ref),
 );
