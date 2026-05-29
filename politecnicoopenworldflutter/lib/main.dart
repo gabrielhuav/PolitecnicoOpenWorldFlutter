@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:politecnicoopenworldflutter/data/local/pow_database.dart';
+import 'package:politecnicoopenworldflutter/ui/cached_network_tile_provider.dart';
 
 import 'features/main_menu/ui/start_menu_screen.dart';
 import 'core/utils/app_logger.dart';
@@ -17,6 +19,9 @@ void main() async {
   await AppLogger.init();
   final prefs = await SharedPreferences.getInstance();
   final settingsRepository = SettingsRepository(prefs);
+  final db = PowDatabase();
+  await CachedNetworkTileProvider.evictIfNeeded(db);
+  await db.close();
 
   FlutterError.onError = (details) {
     AppLogger.log.e(

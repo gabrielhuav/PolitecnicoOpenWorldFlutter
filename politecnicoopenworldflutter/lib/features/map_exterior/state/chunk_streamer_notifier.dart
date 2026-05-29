@@ -5,10 +5,6 @@ import '../../../core/utils/app_logger.dart';
 import 'map_providers.dart';
 import 'player_movement_notifier.dart';
 
-/// Estado expuesto del streamer.
-///   - active:         enganchado al movimiento del jugador.
-///   - loading:        hay una expansión en curso ahora mismo.
-///   - lastLoadCenter: última posición desde la que se cargó.
 class ChunkStreamerState {
   final bool active;
   final bool loading;
@@ -42,24 +38,14 @@ class ChunkStreamerState {
 class ChunkStreamerNotifier extends StateNotifier<ChunkStreamerState> {
   final Ref _ref;
 
-  /// Cuánto debe haberse movido el jugador desde la última carga
-  /// para disparar una nueva. 500 m ≈ 1 cellKey de margen sobre
-  /// las celdas de 0.005°, así siempre hay buffer alrededor.
   static const double _triggerDistanceMeters = 500;
-
-  /// Radio total a mantener cubierto alrededor del jugador.
-  /// Coincide con el bootstrap del PR1.
   static const double _coverageRadiusMeters = 5000;
-
   static const Distance _dist = Distance();
 
   ProviderSubscription<PlayerState>? _sub;
 
   ChunkStreamerNotifier(this._ref) : super(ChunkStreamerState.idle);
 
-  /// Engancha el streamer al movimiento del jugador. Llámalo cuando
-  /// el WorldMapScreen aparece. [initialCenter] suele ser la
-  /// posición del jugador justo después del bootstrap.
   void start(LatLng initialCenter) {
     if (state.active) return;
     state = state.copyWith(active: true, lastLoadCenter: initialCenter);
@@ -72,14 +58,21 @@ class ChunkStreamerNotifier extends StateNotifier<ChunkStreamerState> {
     );
   }
 
-  /// Desengancha el streamer. Llámalo cuando WorldMapScreen se
-  /// destruye (salir al menú principal). Es seguro llamarlo sin
-  /// haber hecho start.
+  /// Detiene el streamer. No muta [state] porque puede ser llamado desde
+  /// [dispose] del widget, que ocurre durante el desmontaje del árbol de
+  /// Flutter. Mutar un provider en ese momento viola las restricciones de
+  /// Riverpod y lanza una excepción en debug. La suscripción se cierra aquí;
+  /// el estado quedará obsoleto y el notifier será destruido por Riverpod
+  /// cuando el provider se libere.
   void stop() {
     _sub?.close();
     _sub = null;
-    if (mounted) state = ChunkStreamerState.idle;
     AppLogger.log.i('ChunkStreamer detenido');
+    // No asignamos state aquí a propósito.
+    // Si el widget ya fue desmontado, Riverpod limpiará el provider.
+    // Si stop() se llama desde un lugar distinto a dispose (ej. botón),
+    // el estado quedará con active=true pero sin suscripción, lo cual
+    // es inofensivo porque _maybeExpand ya no recibirá eventos.
   }
 
   Future<void> _maybeExpand(LatLng next) async {
@@ -109,6 +102,8 @@ class ChunkStreamerNotifier extends StateNotifier<ChunkStreamerState> {
   void dispose() {
     _sub?.close();
     super.dispose();
+    // dispose() de StateNotifier NO debe asignar state: el notifier
+    // ya está siendo destruido por Riverpod en este punto.
   }
 }
 

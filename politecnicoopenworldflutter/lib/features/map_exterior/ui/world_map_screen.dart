@@ -4,22 +4,23 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../multiplayer/multiplayer_notifier.dart';
 import '../../../ui/theme/app_theme.dart';
 import '../../../ui/theme/theme_extensions.dart';
 import '../../settings/state/map_tile_provider.dart';
-import '../state/camera_providers.dart';
+import '../../settings/state/cached_tile_provider_provider.dart';
 import '../../main_menu/state/character_provider.dart';
+import '../state/camera_providers.dart';
 import '../state/player_movement_notifier.dart';
 import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
-import '../../../../multiplayer/multiplayer_notifier.dart';
 import '../state/combat_notifier.dart';
 import 'components/health_bar.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
 import 'components/map_status_indicator.dart';
 import 'components/player_sprite.dart';
-
+import 'components/remote_player_marker_layer.dart';
 import 'game_menu_screen.dart';
 
 class WorldMapScreen extends ConsumerStatefulWidget {
@@ -124,6 +125,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
 
     final character = ref.watch(selectedCharacterProvider);
     final tileProvider = ref.watch(mapTileProviderProvider);
+    final cachedTileProvider = ref.watch(cachedTileProviderProvider);
 
     // Mueve la cámara cada vez que el jugador se mueve.
     // TAMBIÉN transmite posición al servidor, SOLO si el jugador
@@ -174,8 +176,10 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 subdomains: tileProvider.subdomains,
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
                 maxNativeZoom: tileProvider.maxZoom,
+                tileProvider: cachedTileProvider,
               ),
               const NpcMarkerLayer(),
+              const RemotePlayerMarkerLayer(), 
               MarkerLayer(
                 markers: [
                   Marker(

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show HttpClient, HttpClientRequest, HttpClientResponse;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -10,17 +11,15 @@ import '../core/utils/app_logger.dart';
 import '../domain/models/npc.dart';
 import '../features/map_exterior/state/player_health_notifier.dart';
 
-/// Radio de descarga del mapa en modo multijugador (metros).
 const double kMultiplayerMapRadiusMeters = 30000;
-
-/// URL del servidor propio en Render.
 const String kDefaultMultiplayerServerUrl =
     'wss://politecnicoopenworldflutter.onrender.com/flutter';
 
 final multiplayerServerUrlProvider =
     StateProvider<String>((ref) => kDefaultMultiplayerServerUrl);
 
-// ── Modelo: jugador remoto ──────────────────────────────────────────
+// ── Modelos ──────────────────────────────────────────────────────────
+
 class RemotePlayer {
   final String id;
   final LatLng position;
@@ -63,7 +62,6 @@ class RemotePlayer {
       );
 }
 
-// ── Modelo: NPC remoto ──────────────────────────────────────────────
 class RemoteNpc {
   final String id;
   final LatLng position;
@@ -86,7 +84,8 @@ class RemoteNpc {
   });
 }
 
-// ── Estado ──────────────────────────────────────────────────────────
+// ── Estado ───────────────────────────────────────────────────────────
+
 enum MultiplayerStatus { disconnected, connecting, connected, error }
 
 class MultiplayerState {
@@ -139,7 +138,8 @@ class MultiplayerState {
   bool get isConnected => status == MultiplayerStatus.connected;
 }
 
-// ── Notifier ────────────────────────────────────────────────────────
+// ── Notifier ─────────────────────────────────────────────────────────
+
 class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   final Ref _ref;
   MultiplayerNotifier(this._ref) : super(MultiplayerState.initial());
@@ -147,9 +147,47 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _sub;
 
+  /// Keepalive cada 20 s para evitar el timeout de 30 s de Render Free.
+  Timer? _keepaliveTimer;
+
   String _lastAction = 'idle';
   bool _lastFacingRight = true;
   bool _lastIsDriving = false;
+
+  // ── Warmup HTTP ─────────────────────────────────────────────────────
+  /// Render Free duerme el proceso tras inactividad. Un GET al /status
+  /// lo despierta. Esperamos hasta que responda antes de abrir el WS.
+  Future<void> _warmupServer(String serverUrl) async {
+    final httpUrl = serverUrl
+        .replaceFirst('wss://', 'https://')
+        .replaceFirst('ws://', 'http://')
+        .replaceFirst('/flutter', '/status');
+
+    AppLogger.log.i('Multiplayer: warmup -> $httpUrl');
+
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 12);
+
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final request = await client.getUrl(Uri.parse(httpUrl));
+        final response = await request.close();
+        await response.drain<void>();
+        if (response.statusCode == 200) {
+          AppLogger.log.i('Multiplayer: servidor activo (warmup OK)');
+          break;
+        }
+      } catch (e) {
+        AppLogger.log.d('Multiplayer: warmup intento $attempt: $e');
+        if (attempt < 3) {
+          await Future<void>.delayed(const Duration(seconds: 5));
+        }
+      }
+    }
+    client.close();
+  }
+
+  // ── Conexión ────────────────────────────────────────────────────────
 
   Future<void> connect({
     required String serverUrl,
@@ -171,9 +209,14 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     AppLogger.log.i('Multiplayer: conectando a $serverUrl como "$playerName"');
 
     try {
+      // 1. Despertar Render antes de abrir el WebSocket.
+      await _warmupServer(serverUrl);
+
+      // 2. Abrir WebSocket. pingInterval mantiene el socket vivo a nivel
+      //    de protocolo WS; el keepalive JSON cubre la capa de Render.
       _channel = IOWebSocketChannel.connect(
         Uri.parse(serverUrl),
-        pingInterval: const Duration(seconds: 25),
+        pingInterval: const Duration(seconds: 20),
       );
 
       await _channel!.ready;
@@ -184,9 +227,17 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         onDone: _onDone,
       );
 
+      // 3. Keepalive JSON cada 20 s.
+      _keepaliveTimer?.cancel();
+      _keepaliveTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+        if (state.isConnected) {
+          _sendJson({'type': 'PING'});
+        }
+      });
+
       if (!mounted) return;
       state = state.copyWith(status: MultiplayerStatus.connected);
-      AppLogger.log.i('Multiplayer: conexión establecida');
+      AppLogger.log.i('Multiplayer: conexion establecida');
     } catch (e) {
       AppLogger.log.e('Multiplayer: error al conectar', error: e);
       if (mounted) {
@@ -224,56 +275,51 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
 
   void broadcastNpcs(List<Npc> localNpcs) {
     if (!state.isConnected || !state.isZoneHost) return;
-
     final myId = state.sessionId;
-    final npcList = localNpcs.map((npc) {
-      return {
-        'id': npc.id,
-        'x': npc.location.longitude,
-        'y': npc.location.latitude,
-        'type': npc.type.name,
-        'rotation': npc.rotationAngle,
-        'speed': npc.speed,
-        'carColor': npc.carColor,
-        'carModel': npc.carModel.name,
-        'ownerId': myId,
-      };
-    }).toList();
-
-    _sendJson({
-      'type': 'NPC_BATCH_UPDATE',
-      'npcs': npcList,
-    });
+    final npcList = localNpcs.map((npc) => {
+          'id': npc.id,
+          'x': npc.location.longitude,
+          'y': npc.location.latitude,
+          'type': npc.type.name,
+          'rotation': npc.rotationAngle,
+          'speed': npc.speed,
+          'carColor': npc.carColor,
+          'carModel': npc.carModel.name,
+          'ownerId': myId,
+        }).toList();
+    _sendJson({'type': 'NPC_BATCH_UPDATE', 'npcs': npcList});
   }
 
   void sendPlayerDamage(String targetId, double damage) {
     if (!state.isConnected) return;
-    _sendJson({
-      'type': 'PLAYER_DAMAGE',
-      'targetId': targetId,
-      'damage': damage,
-    });
+    _sendJson({'type': 'PLAYER_DAMAGE', 'targetId': targetId, 'damage': damage});
   }
 
   void disconnect() {
+    _keepaliveTimer?.cancel();
+    _keepaliveTimer = null;
     _sub?.cancel();
     _sub = null;
     _channel?.sink.close(1000);
     _channel = null;
     if (mounted) {
-      state = MultiplayerState.initial()
-          .copyWith(playerName: state.playerName);
+      state = MultiplayerState.initial().copyWith(playerName: state.playerName);
     }
     AppLogger.log.i('Multiplayer: desconectado');
   }
 
-  // ── Entrada de mensajes ────────────────────────────────────────────
+  // ── Mensajes entrantes ───────────────────────────────────────────────
+
   void _onMessage(dynamic raw) {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
 
       switch (type) {
+        case 'PING':
+        case 'PONG':
+          break; // silencio
+
         case 'SESSION_INIT':
           final id = data['sessionId'] as String?;
           if (id != null) {
@@ -313,14 +359,12 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
           _handlePlayerDamage(data);
 
         default:
-          AppLogger.log.d('Multiplayer: tipo desconocido $type');
+          AppLogger.log.d('Multiplayer: tipo desconocido "$type"');
       }
     } catch (e) {
       AppLogger.log.w('Multiplayer: parse error: $e');
     }
   }
-
-  // ── Handlers ──────────────────────────────────────────────────────
 
   void _handleDisconnect(Map<String, dynamic> data) {
     final id = data['id'] as String?;
@@ -329,16 +373,14 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     var npcs = state.remoteNpcs;
 
     if (id != null && players.containsKey(id)) {
-      final updated = Map<String, RemotePlayer>.from(players)..remove(id);
-      players = updated;
-      AppLogger.log.i('Multiplayer: salió $id');
+      players = Map.from(players)..remove(id);
+      AppLogger.log.i('Multiplayer: salio $id');
     }
     if (orphans is List) {
-      final updated = Map<String, RemoteNpc>.from(npcs);
+      npcs = Map.from(npcs);
       for (final o in orphans) {
-        if (o is String) updated.remove(o);
+        if (o is String) (npcs as Map).remove(o);
       }
-      npcs = updated;
     }
     state = state.copyWith(players: players, remoteNpcs: npcs);
   }
@@ -351,22 +393,18 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     for (final n in list) {
       if (n is! Map) continue;
       final parsed = _parseNpc(Map<String, dynamic>.from(n));
-      if (parsed == null) continue;
-      if (parsed.ownerId != null && parsed.ownerId == myId) continue;
+      if (parsed == null || parsed.ownerId == myId) continue;
       npcs[parsed.id] = parsed;
     }
     state = state.copyWith(remoteNpcs: npcs);
-    AppLogger.log.i('Multiplayer: SYNC_ALL_NPCS ${npcs.length} NPCs');
   }
 
   void _handleSingleNpc(Map<String, dynamic> data) {
     final n = data['npc'];
     if (n is! Map) return;
     final parsed = _parseNpc(Map<String, dynamic>.from(n));
-    if (parsed == null) return;
-    if (parsed.ownerId != null && parsed.ownerId == state.sessionId) return;
-    final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs);
-    npcs[parsed.id] = parsed;
+    if (parsed == null || parsed.ownerId == state.sessionId) return;
+    final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs)..[parsed.id] = parsed;
     state = state.copyWith(remoteNpcs: npcs);
   }
 
@@ -374,34 +412,21 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     final list = data['npcs'];
     if (list is! List) return;
     final myId = state.sessionId;
-    final incomingIds = <String>{};
     final npcs = Map<String, RemoteNpc>.from(state.remoteNpcs);
-
+    final incoming = <String>{};
     String? batchOwner;
-    for (final n in list) {
-      if (n is Map) {
-        final candidate = n['ownerId'];
-        if (candidate is String) {
-          batchOwner = candidate;
-          break;
-        }
-      }
-    }
 
     for (final n in list) {
       if (n is! Map) continue;
       final parsed = _parseNpc(Map<String, dynamic>.from(n));
-      if (parsed == null) continue;
-      if (parsed.ownerId == myId) continue;
+      if (parsed == null || parsed.ownerId == myId) continue;
+      batchOwner ??= parsed.ownerId;
       npcs[parsed.id] = parsed;
-      incomingIds.add(parsed.id);
+      incoming.add(parsed.id);
     }
-
     if (batchOwner != null) {
-      npcs.removeWhere((id, npc) =>
-          npc.ownerId == batchOwner && !incomingIds.contains(id));
+      npcs.removeWhere((id, n) => n.ownerId == batchOwner && !incoming.contains(id));
     }
-
     state = state.copyWith(remoteNpcs: npcs);
   }
 
@@ -420,6 +445,9 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     final y = (data['y'] as num?)?.toDouble();
     if (x == null || y == null) return;
 
+    final pos = LatLng(y, x);
+    final updated = Map<String, RemotePlayer>.from(state.players);
+    final existing = updated[id];
     final displayName = data['displayName'] as String? ?? 'Jugador';
     final isHost = data['isHost'] as bool? ?? false;
     final isDriving = data['isDriving'] as bool? ?? false;
@@ -427,30 +455,18 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     final facingRight = data['facingRight'] as bool? ?? true;
     final health = (data['health'] as num?)?.toDouble() ?? 100;
 
-    final pos = LatLng(y, x);
-    final updated = Map<String, RemotePlayer>.from(state.players);
-    final existing = updated[id];
     if (existing == null) {
       updated[id] = RemotePlayer(
-        id: id,
-        position: pos,
-        displayName: displayName,
-        isHost: isHost,
-        isDriving: isDriving,
-        action: action,
-        facingRight: facingRight,
-        health: health,
+        id: id, position: pos, displayName: displayName,
+        isHost: isHost, isDriving: isDriving,
+        action: action, facingRight: facingRight, health: health,
       );
       AppLogger.log.i('Multiplayer: nuevo remoto $id ($displayName)');
     } else {
       updated[id] = existing.copyWith(
-        position: pos,
-        displayName: displayName,
-        isHost: isHost,
-        isDriving: isDriving,
-        action: action,
-        facingRight: facingRight,
-        health: health,
+        position: pos, displayName: displayName, isHost: isHost,
+        isDriving: isDriving, action: action,
+        facingRight: facingRight, health: health,
       );
     }
     state = state.copyWith(players: updated);
@@ -459,18 +475,11 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   void _handleMasterSyncCheck(Map<String, dynamic> data) {
     final ids = data['activeNpcIds'];
     if (ids is! List) return;
-    final officialSet = ids.whereType<String>().toSet();
-    final filtered = <String, RemoteNpc>{};
-    for (final entry in state.remoteNpcs.entries) {
-      if (officialSet.contains(entry.key)) {
-        filtered[entry.key] = entry.value;
-      }
-    }
+    final official = ids.whereType<String>().toSet();
+    final filtered = Map.fromEntries(
+      state.remoteNpcs.entries.where((e) => official.contains(e.key)),
+    );
     if (filtered.length != state.remoteNpcs.length) {
-      AppLogger.log.d(
-        'Multiplayer: SYNC_CHECK depuró '
-        '${state.remoteNpcs.length - filtered.length} fantasmas',
-      );
       state = state.copyWith(remoteNpcs: filtered);
     }
   }
@@ -481,7 +490,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     final damage = (data['damage'] as num?)?.toDouble() ?? 0;
     if (damage <= 0) return;
     _ref.read(playerHealthProvider.notifier).takeDamage(damage);
-    AppLogger.log.i('Multiplayer: recibí daño de $damage');
+    AppLogger.log.i('Multiplayer: recibi dano $damage');
   }
 
   RemoteNpc? _parseNpc(Map<String, dynamic> data) {
@@ -490,30 +499,22 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     final x = (data['x'] as num?)?.toDouble();
     final y = (data['y'] as num?)?.toDouble();
     if (x == null || y == null) return null;
-    final type = (data['type'] as String?) ?? 'person';
-    final rotation = (data['rotation'] as num?)?.toDouble() ??
-        (data['vehicleRotation'] as num?)?.toDouble() ??
-        (data['rotationAngle'] as num?)?.toDouble() ??
-        0.0;
-    final speed = (data['speed'] as num?)?.toDouble() ?? 0.0;
-    final carColor = (data['carColor'] as int?) ?? 0xFFFFFFFF;
-    final carModel = (data['carModel'] as String?) ?? 'sedan';
-    final ownerId = data['ownerId'] as String?;
-
     return RemoteNpc(
       id: id,
       position: LatLng(y, x),
-      type: type,
-      rotation: rotation,
-      speed: speed,
-      carColor: carColor,
-      carModel: carModel,
-      ownerId: ownerId,
+      type: (data['type'] as String?) ?? 'person',
+      rotation: (data['rotation'] as num?)?.toDouble() ?? 0.0,
+      speed: (data['speed'] as num?)?.toDouble() ?? 0.0,
+      carColor: (data['carColor'] as int?) ?? 0xFFFFFFFF,
+      carModel: (data['carModel'] as String?) ?? 'sedan',
+      ownerId: data['ownerId'] as String?,
     );
   }
 
   void _onError(Object e) {
     AppLogger.log.e('Multiplayer: error de stream', error: e);
+    _keepaliveTimer?.cancel();
+    _keepaliveTimer = null;
     if (mounted) {
       state = state.copyWith(
         status: MultiplayerStatus.error,
@@ -524,6 +525,8 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
 
   void _onDone() {
     AppLogger.log.i('Multiplayer: stream cerrado');
+    _keepaliveTimer?.cancel();
+    _keepaliveTimer = null;
     if (mounted) {
       state = state.copyWith(
         status: MultiplayerStatus.disconnected,
@@ -544,6 +547,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
 
   @override
   void dispose() {
+    _keepaliveTimer?.cancel();
     disconnect();
     super.dispose();
   }
