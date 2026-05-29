@@ -252,9 +252,18 @@ function handlePlayerUpdate(ws, data) {
     const shouldBeHost = nearbyHostMinId === null || ws.sessionId < nearbyHostMinId;
 
     if (ws.isHost !== shouldBeHost) {
-        ws.isHost = shouldBeHost;
-        sendTo(ws, { type: 'ROLE_UPDATE', isZoneHost: shouldBeHost });
-        console.log(`[Host] ${ws.sessionId.slice(0, 8)} isHost=${shouldBeHost}`);
+        if (ws.isHost && !shouldBeHost) {
+            const toDelete = [];
+            for (const [id, npc] of npcs.entries()) {
+            if (npc.ownerId === ws.sessionId) {
+                toDelete.push(id);
+                npcs.delete(id);
+            }
+            }
+            if (toDelete.length > 0) {
+            broadcastAll({ type: 'DISCONNECT', orphanedNpcs: toDelete });
+            }
+        }
     }
 
     players.set(ws.sessionId, {
