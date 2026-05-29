@@ -1,41 +1,12 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+// lib/core/utils/providers.dart
+//
+// Archivo de compatibilidad — re-exporta todos los providers que antes
+// vivían aquí. Importar este archivo sigue funcionando igual que antes.
 
-// Importamos tus fuentes de datos y repositorios
-import '../../data/datasources/local/app_database.dart';
-import '../../data/datasources/remote/overpass_client.dart';
-import '../../data/repositories/map_repository_impl.dart';
-import '../../data/repositories/settings_repository.dart';
-
-// Importamos la lógica de estado
-import '../../presentation/state/map_provider.dart';
-
-
-// ==========================================
-// 1. DATA SOURCES (Fuentes de datos)
-// ==========================================
-final localDbProvider = Provider((ref) => AppDatabase());
-final remoteClientProvider = Provider((ref) => OverpassClient());
-final settingsRepositoryProvider = Provider<SettingsRepository>(
-  (ref) => throw UnimplementedError('SettingsRepository no inicializado'),
-);
-
-// ==========================================
-// 2. REPOSITORIOS
-// ==========================================
-final mapRepositoryProvider = Provider((ref) {
-  // Aquí Riverpod inyecta automáticamente la DB y el Cliente
-  return MapRepositoryImpl(
-    ref.read(localDbProvider),
-    ref.read(remoteClientProvider),
-  );
-});
-
-// ==========================================
-// 3. ESTADOS GLOBALES DE LA UI
-// ==========================================
-// Usamos ChangeNotifierProvider para no tener que reescribir tu MapProvider actual
-final mapStateProvider = ChangeNotifierProvider<MapProvider>((ref) {
-  return MapProvider(
-    mapRepository: ref.read(mapRepositoryProvider),
-  );
-});
+export '../../features/map_exterior/state/map_providers.dart';
+export '../../features/map_exterior/state/session_providers.dart';
+export '../../features/map_exterior/state/location_providers.dart';
+export '../../features/map_exterior/state/camera_providers.dart';
+export '../../features/settings/state/game_settings_providers.dart';
+export '../../features/settings/state/map_tile_provider.dart';
+export '../../features/settings/state/settings_repository_provider.dart';

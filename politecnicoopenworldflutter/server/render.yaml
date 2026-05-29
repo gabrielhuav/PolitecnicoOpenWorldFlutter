@@ -1,0 +1,12 @@
+# Render Blueprint para el servidor multijugador de Flutter.
+# Subes este archivo a la raíz del repo (o dentro de server/) y
+# Render detecta el servicio automáticamente al hacer "New Blueprint".
+services:
+  - type: web
+    name: pow-flutter-multiplayer
+    env: docker
+    plan: free
+    region: oregon
+    rootDir: server
+    healthCheckPath: /status
+    autoDeploy: true

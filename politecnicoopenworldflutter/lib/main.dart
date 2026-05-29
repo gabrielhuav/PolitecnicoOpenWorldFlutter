@@ -2,20 +2,26 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:politecnicoopenworldflutter/data/local/pow_database.dart';
+import 'package:politecnicoopenworldflutter/ui/cached_network_tile_provider.dart';
 
-import 'presentation/pages/start_menu_screen.dart';
+import 'features/main_menu/ui/start_menu_screen.dart';
 import 'core/utils/app_logger.dart';
-import 'core/utils/game_settings_providers.dart';
-import 'core/utils/map_tile_provider.dart';
+import 'features/settings/state/game_settings_providers.dart';
+import 'features/settings/state/map_tile_provider.dart';
 import 'core/utils/providers.dart';
-import 'core/theme/theme_providers.dart';
-import 'data/repositories/settings_repository.dart';
+import 'ui/theme/theme_providers.dart';
+import 'data/repository/settings_repository.dart';
+import '../multiplayer/multiplayer_notifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppLogger.init();
   final prefs = await SharedPreferences.getInstance();
   final settingsRepository = SettingsRepository(prefs);
+  final db = PowDatabase();
+  await CachedNetworkTileProvider.evictIfNeeded(db);
+  await db.close();
 
   FlutterError.onError = (details) {
     AppLogger.log.e(
@@ -64,6 +70,9 @@ void main() async {
         ),
         selectedThemeIdProvider.overrideWith(
           (ref) => settingsRepository.themeId,
+        ),
+        multiplayerServerUrlProvider.overrideWith(
+          (ref) => settingsRepository.multiplayerServerUrl,
         ),
       ],
       child: const PolitecnicoOpenWorldApp(),
