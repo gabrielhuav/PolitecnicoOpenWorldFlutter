@@ -7,9 +7,6 @@ import '../../features/map_exterior/ui/loading_screen.dart';
 import '../../features/map_exterior/state/location_providers.dart';
 import '../multiplayer_notifier.dart';
 
-/// Pantalla de multijugador.
-/// Muestra un campo para ingresar el nombre visible antes de conectarse,
-/// el estado de la conexión y botones de acción.
 class MultiplayerScreen extends ConsumerStatefulWidget {
   const MultiplayerScreen({super.key});
 
@@ -21,7 +18,9 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
   bool _navigating = false;
 
   late final TextEditingController _nameController;
+  late final TextEditingController _urlController;
   final _nameFocusNode = FocusNode();
+  bool _showUrlField = false;
 
   @override
   void initState() {
@@ -31,23 +30,31 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
     _nameController = TextEditingController(
       text: existingName.isNotEmpty ? existingName : characterName,
     );
+    // Mostrar la URL actual para que el usuario pueda verificarla
+    final currentUrl = ref.read(multiplayerServerUrlProvider);
+    _urlController = TextEditingController(text: currentUrl);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _urlController.dispose();
     _nameFocusNode.dispose();
     super.dispose();
   }
 
   String get _trimmedName => _nameController.text.trim();
 
-  /// Conecta al servidor y se queda en esta pantalla para que el usuario
-  /// vea el estado "¡Conectado!" y pulse "Entrar al mapa" cuando quiera.
   Future<void> _connect() async {
     if (_navigating) return;
 
     _nameFocusNode.unfocus();
+
+    // Actualizar la URL si el usuario la cambió
+    final urlText = _urlController.text.trim();
+    if (urlText.isNotEmpty) {
+      ref.read(multiplayerServerUrlProvider.notifier).state = urlText;
+    }
 
     final name = _trimmedName.isNotEmpty
         ? _trimmedName
@@ -59,9 +66,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
           serverUrl: url,
           playerName: name,
         );
-
-    // Sin navegación automática: el build() detecta el cambio de estado
-    // y el botón pasa a "Entrar al mapa". El usuario decide cuándo entrar.
   }
 
   void _disconnect() =>
@@ -70,7 +74,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
   Future<void> _navigateToMap() async {
     if (_navigating) return;
 
-    // Emitir posición inicial para que otros jugadores nos vean de inmediato.
     final locationService = ref.read(locationServiceProvider);
     final currentLatLng = await locationService.getCurrent();
     if (currentLatLng != null) {
@@ -93,6 +96,7 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
     final isConnecting = mpState.status == MultiplayerStatus.connecting;
     final isConnected = mpState.isConnected;
     final hasError = mpState.status == MultiplayerStatus.error;
+    final currentUrl = ref.watch(multiplayerServerUrlProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1220),
@@ -115,20 +119,31 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                         Navigator.pop(context);
                       },
                     ),
-                    const Text(
-                      'Multijugador',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                    const Expanded(
+                      child: Text(
+                        'Multijugador',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                    ),
+                    // Botón para mostrar/ocultar campo de URL
+                    IconButton(
+                      icon: Icon(
+                        _showUrlField ? Icons.settings_ethernet : Icons.settings_ethernet,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                      tooltip: 'Cambiar servidor',
+                      onPressed: () =>
+                          setState(() => _showUrlField = !_showUrlField),
                     ),
                   ],
                 ),
               ),
 
-              // ── Cuerpo ──────────────────────────────────────────────
               Expanded(
                 child: Center(
                   child: SingleChildScrollView(
@@ -136,11 +151,9 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Icono de estado animado
                         _StatusIcon(status: mpState.status),
                         const SizedBox(height: 20),
 
-                        // Título de estado
                         Text(
                           _statusTitle(mpState.status),
                           style: const TextStyle(
@@ -152,7 +165,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Subtítulo
                         Text(
                           _statusSubtitle(mpState.status),
                           style: const TextStyle(
@@ -162,9 +174,95 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           textAlign: TextAlign.center,
                         ),
 
-                        // Campo de nombre (solo cuando no está conectado)
+                        // ── URL del servidor (debug/configuración) ──
                         if (!isConnected) ...[
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 12),
+                          // Mostrar URL actual siempre como info
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.white12, width: 1),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.dns_outlined,
+                                    color: Colors.white38, size: 14),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    currentUrl,
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 10,
+                                      fontFamily: 'monospace',
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Campo para cambiar la URL (expandible)
+                          if (_showUrlField) ...[
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _urlController,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 13),
+                              decoration: InputDecoration(
+                                labelText: 'URL del servidor',
+                                labelStyle: const TextStyle(
+                                    color: Colors.white54, fontSize: 12),
+                                hintText:
+                                    'wss://servidor.onrender.com/flutter',
+                                hintStyle: const TextStyle(
+                                    color: Colors.white24, fontSize: 11),
+                                filled: true,
+                                fillColor:
+                                    Colors.white.withValues(alpha: 0.07),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide.none,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                      color: Colors.white24, width: 1),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                      color: Colors.tealAccent, width: 1),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.restore,
+                                      color: Colors.white38, size: 18),
+                                  tooltip: 'Restaurar URL por defecto',
+                                  onPressed: () {
+                                    _urlController.text =
+                                        'wss://politecnicoopenworld.onrender.com/flutter';
+                                    ref
+                                        .read(multiplayerServerUrlProvider
+                                            .notifier)
+                                        .state =
+                                        'wss://politecnicoopenworld.onrender.com/flutter';
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+
+                        // Campo de nombre
+                        if (!isConnected) ...[
+                          const SizedBox(height: 16),
                           _NameField(
                             controller: _nameController,
                             focusNode: _nameFocusNode,
@@ -179,11 +277,12 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.tealAccent.withValues(alpha: 0.10),
+                              color:
+                                  Colors.tealAccent.withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                  color:
-                                      Colors.tealAccent.withValues(alpha: 0.4)),
+                                  color: Colors.tealAccent
+                                      .withValues(alpha: 0.4)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -211,7 +310,8 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                               if (mpState.players.isNotEmpty)
                                 _Chip(
                                   icon: Icons.people_rounded,
-                                  label: '${mpState.players.length} en línea',
+                                  label:
+                                      '${mpState.players.length} en línea',
                                   color: Colors.greenAccent,
                                 ),
                               _Chip(
@@ -225,12 +325,6 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                                     ? Colors.amberAccent
                                     : Colors.white54,
                               ),
-                              if (mpState.remoteNpcs.isNotEmpty)
-                                _Chip(
-                                  icon: Icons.directions_car_rounded,
-                                  label: '${mpState.remoteNpcs.length} NPCs',
-                                  color: Colors.lightBlueAccent,
-                                ),
                             ],
                           ),
                         ],
@@ -259,9 +353,9 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                           ),
                         ],
 
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 32),
 
-                        // ── Botón principal ──────────────────────────
+                        // Botón principal
                         SizedBox(
                           width: double.infinity,
                           height: 54,
@@ -314,14 +408,14 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               elevation: 4,
-                              disabledBackgroundColor: const Color(0xFF0F766E)
-                                  .withValues(alpha: 0.4),
+                              disabledBackgroundColor:
+                                  const Color(0xFF0F766E)
+                                      .withValues(alpha: 0.4),
                               disabledForegroundColor: Colors.white54,
                             ),
                           ),
                         ),
 
-                        // Botón desconectar (solo si está conectado)
                         if (isConnected) ...[
                           const SizedBox(height: 12),
                           SizedBox(
@@ -333,7 +427,8 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                               label: const Text('Desconectar'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.white60,
-                                side: const BorderSide(color: Colors.white24),
+                                side: const BorderSide(
+                                    color: Colors.white24),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -362,13 +457,13 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
 
   String _statusSubtitle(MultiplayerStatus s) => switch (s) {
         MultiplayerStatus.disconnected =>
-          'Elige tu nombre y presiona el botón para unirte.',
+          'Elige tu nombre y presiona Conectarse.',
         MultiplayerStatus.connecting =>
-          'Estableciendo conexión con el servidor...',
+          'Despertando el servidor...',
         MultiplayerStatus.connected =>
           'Listo para explorar con otros jugadores.',
         MultiplayerStatus.error =>
-          'No se pudo alcanzar el servidor.\nVerifica tu conexión a internet.',
+          'No se pudo conectar.\nVerifica la URL del servidor.',
       };
 }
 
@@ -413,7 +508,8 @@ class _NameField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Ej. Jugador123',
             hintStyle: const TextStyle(color: Colors.white30),
-            counterStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+            counterStyle:
+                const TextStyle(color: Colors.white38, fontSize: 11),
             prefixIcon: const Icon(Icons.person_outline,
                 color: Colors.tealAccent, size: 20),
             filled: true,
@@ -424,20 +520,16 @@ class _NameField extends StatelessWidget {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Colors.white12, width: 1),
+              borderSide:
+                  const BorderSide(color: Colors.white12, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide:
                   const BorderSide(color: Colors.tealAccent, width: 1.5),
             ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.05), width: 1),
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 14),
           ),
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => focusNode.unfocus(),

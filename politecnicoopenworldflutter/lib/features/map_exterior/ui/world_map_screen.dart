@@ -4,23 +4,21 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../../multiplayer/multiplayer_notifier.dart';
 import '../../../ui/theme/app_theme.dart';
 import '../../../ui/theme/theme_extensions.dart';
 import '../../settings/state/map_tile_provider.dart';
-import '../../settings/state/cached_tile_provider_provider.dart';
-import '../../main_menu/state/character_provider.dart';
 import '../state/camera_providers.dart';
+import '../../main_menu/state/character_provider.dart';
 import '../state/player_movement_notifier.dart';
 import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
-import '../state/combat_notifier.dart';
-import 'components/health_bar.dart';
+import '../../../../multiplayer/multiplayer_notifier.dart';
+import '../../../../multiplayer/multiplayer_layer.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
 import 'components/map_status_indicator.dart';
 import 'components/player_sprite.dart';
-import 'components/remote_player_marker_layer.dart';
+
 import 'game_menu_screen.dart';
 
 class WorldMapScreen extends ConsumerStatefulWidget {
@@ -71,6 +69,21 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
       _publishViewportRadius(initialCenter, _initialZoom);
       ref.read(npcNotifierProvider.notifier).start();
       ref.read(chunkStreamerProvider.notifier).start(initialCenter);
+
+      // ── BROADCAST INICIAL ──────────────────────────────────────────
+      // Manda la posición al servidor inmediatamente al entrar al mapa,
+      // sin esperar a que el jugador mueva el joystick.
+      // Sin esto, el servidor no registra al jugador y los demás
+      // no lo ven hasta que se mueve por primera vez.
+      final mp = ref.read(multiplayerProvider);
+      if (mp.status == MultiplayerStatus.connected) {
+        ref.read(multiplayerProvider.notifier).broadcastMovement(
+              initialCenter,
+              action: 'idle',
+              facingRight: true,
+              isDriving: false,
+            );
+      }
     });
   }
 
@@ -89,12 +102,9 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
     super.dispose();
   }
 
-  /// Abre el menú de pausa como ruta translúcida (opaque: false).
-  /// Solo pausa/reanuda NPCs — NO registra ningún listener aquí.
   Future<void> _openPauseMenu() async {
     final isConnected = ref.read(multiplayerProvider).isConnected;
 
-    // Solo pausar el bucle local si estamos en modo Singleplayer
     if (!isConnected) {
       ref.read(npcNotifierProvider.notifier).pause();
     }
@@ -111,7 +121,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
       ),
     );
     if (!mounted) return;
-    // Solo reanudar si lo habíamos pausado nosotros
     if (!isConnected) {
       ref.read(npcNotifierProvider.notifier).resume();
     }
@@ -125,18 +134,14 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
 
     final character = ref.watch(selectedCharacterProvider);
     final tileProvider = ref.watch(mapTileProviderProvider);
-    final cachedTileProvider = ref.watch(cachedTileProviderProvider);
 
-    // Mueve la cámara cada vez que el jugador se mueve.
-    // TAMBIÉN transmite posición al servidor, SOLO si el jugador
-    // está conectado al modo multijugador.
     ref.listen<PlayerState>(playerMovementProvider, (prev, next) {
       if (!mounted) return;
       try {
         _mapController.move(next.position, _mapController.camera.zoom);
       } catch (_) {}
 
-      // Broadcast SOLO en multijugador. El singleplayer ni se entera.
+      // Broadcast SOLO en multijugador.
       final mp = ref.read(multiplayerProvider);
       if (mp.status == MultiplayerStatus.connected) {
         ref.read(multiplayerProvider.notifier).broadcastMovement(
@@ -144,7 +149,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
               action: next.isMoving ? 'walk' : 'idle',
               facingRight: next.facing == PlayerDirection.right,
               isDriving: false,
-        );
+            );
       }
     });
 
@@ -176,10 +181,9 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                 subdomains: tileProvider.subdomains,
                 userAgentPackageName: 'com.politecnicoopenworld.flutter',
                 maxNativeZoom: tileProvider.maxZoom,
-                tileProvider: cachedTileProvider,
               ),
               const NpcMarkerLayer(),
-              const RemotePlayerMarkerLayer(), 
+              const MultiplayerLayer(),
               MarkerLayer(
                 markers: [
                   Marker(
@@ -190,8 +194,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                     child: _PlayerMarker(
                       theme: theme,
                       playerState: playerState,
-                      // LEEMOS DIRECTAMENTE EL CAMPO DEL MODELO.
-                      // Si no está definido (por ejemplo, slots sin configurar), usa la aventurera de respaldo.
                       spritesheetPath: character.spritesheetPath ??
                           'assets/character/move_character/spiritiesheet-aventurera.png',
                     ),
@@ -222,48 +224,51 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
           ),
 
-          // HUD del personaje
+          // HUD del personaje + estado multijugador
           Positioned(
             top: 50,
             right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: theme.borderAccent, width: 1),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    character.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(10),
+                    border:
+                        Border.all(color: theme.borderAccent, width: 1),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${playerPosition.latitude.toStringAsFixed(5)}, '
-                    '${playerPosition.longitude.toStringAsFixed(5)}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        character.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${playerPosition.latitude.toStringAsFixed(5)}, '
+                        '${playerPosition.longitude.toStringAsFixed(5)}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                // Badge de estado multijugador
+                _MultiplayerBadge(),
+              ],
             ),
-          ),
-
-          Positioned(
-            top: 110,
-            right: 20,
-            child: const HealthBar(),
           ),
 
           // Recentrar
@@ -296,7 +301,8 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             right: 6,
             child: IgnorePointer(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(4),
@@ -312,6 +318,76 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Badge pequeño que muestra el estado de la conexión multijugador.
+/// Visible solo cuando está conectado; muestra jugadores remotos y rol.
+class _MultiplayerBadge extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mp = ref.watch(multiplayerProvider);
+    if (!mp.isConnected) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.greenAccent.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  color: Colors.greenAccent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              const Text(
+                'CONECTADO',
+                style: TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'ID: ${(mp.sessionId ?? '').substring(0, math.min(8, (mp.sessionId ?? '').length))}...',
+            style: const TextStyle(color: Colors.white54, fontSize: 9),
+          ),
+          Text(
+            'Remotos: ${mp.players.length}',
+            style: const TextStyle(color: Colors.white70, fontSize: 10),
+          ),
+          if (mp.isZoneHost)
+            const Text(
+              'HOST',
+              style: TextStyle(
+                color: Colors.amberAccent,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
         ],
       ),
     );

@@ -15,7 +15,6 @@ const npcs = new Map();
 
 const HOST_RADIUS = 0.004;
 
-// Status con jugadores visibles para debug
 app.get('/status', (req, res) => {
     res.json({
         estado: 'Online',
@@ -27,8 +26,6 @@ app.get('/status', (req, res) => {
             displayName: p.displayName,
             x: p.x,
             y: p.y,
-            action: p.action,
-            facingRight: p.facingRight,
             isHost: p.isHost,
         })),
         timestamp: new Date().toISOString()
@@ -51,38 +48,43 @@ server.on('upgrade', (request, socket, head) => {
     }
 });
 
+function sendTo(ws, data) {
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+    }
+}
+
 function broadcastToOthers(senderWs, msg) {
+    const str = typeof msg === 'string' ? msg : JSON.stringify(msg);
     wss.clients.forEach((client) => {
         if (client !== senderWs && client.readyState === WebSocket.OPEN) {
-            client.send(msg.toString());
+            client.send(str);
         }
     });
 }
 
-function broadcastAll(msg) {
+function broadcastAll(data) {
+    const str = JSON.stringify(data);
     wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(msg.toString());
+            client.send(str);
         }
     });
 }
 
-// Heartbeat
+// Heartbeat WebSocket
 const heartbeatInterval = setInterval(() => {
     wss.clients.forEach((ws) => {
-        if (ws.missedPings === undefined) ws.missedPings = 0;
         if (ws.isAlive === false) {
-            ws.missedPings++;
-            if (ws.missedPings >= 6) return ws.terminate();
-        } else {
-            ws.missedPings = 0;
+            console.log(`[x] Sin respuesta: ${ws.sessionId}, terminando`);
+            return ws.terminate();
         }
         ws.isAlive = false;
         ws.ping();
     });
 }, 30000);
 
-// GC de NPCs huérfanos
+// GC de NPCs huérfanos (sin actualización en 15 s)
 const npcGcInterval = setInterval(() => {
     const now = Date.now();
     const toDelete = [];
@@ -93,55 +95,51 @@ const npcGcInterval = setInterval(() => {
         }
     }
     if (toDelete.length > 0) {
-        broadcastAll(JSON.stringify({ type: 'DISCONNECT', orphanedNpcs: toDelete }));
+        broadcastAll({ type: 'DISCONNECT', orphanedNpcs: toDelete });
     }
 }, 5000);
 
-// Sync maestra
+// Sync maestra cada 5 s
 const masterSyncInterval = setInterval(() => {
     if (wss.clients.size > 0) {
-        broadcastAll(JSON.stringify({
+        broadcastAll({
             type: 'MASTER_SYNC_CHECK',
             activeNpcIds: Array.from(npcs.keys())
-        }));
+        });
     }
 }, 5000);
 
 wss.on('connection', (ws) => {
     ws.sessionId = uuidv4();
     ws.isAlive = true;
-    ws.missedPings = 0;
-    // CRÍTICO: arrancar como no-Host. El rol se asigna en el primer
-    // PLAYER_UPDATE cuando ya conocemos la posición y los vecinos.
     ws.isHost = false;
 
     console.log(`[+] Conectado: ${ws.sessionId} (total: ${wss.clients.size})`);
 
     // 1. UUID propio
-    ws.send(JSON.stringify({ type: 'SESSION_INIT', sessionId: ws.sessionId }));
+    sendTo(ws, { type: 'SESSION_INIT', sessionId: ws.sessionId });
 
-    // 2. Estado actual de otros jugadores para que el recién llegado
-    //    los vea inmediatamente sin esperar su primer PLAYER_UPDATE.
-    const currentPlayers = Array.from(players.values());
-    for (const p of currentPlayers) {
-        ws.send(JSON.stringify({
+    // 2. Snapshot de jugadores ya conectados
+    // CRÍTICO: sin esto, el jugador B nunca ve al jugador A que ya estaba
+    for (const p of players.values()) {
+        sendTo(ws, {
             type: 'PLAYER_UPDATE',
             id: p.id,
             x: p.x,
             y: p.y,
             displayName: p.displayName,
-            action: p.action,
-            facingRight: p.facingRight,
+            action: p.action || 'idle',
+            facingRight: p.facingRight !== false,
             isHost: p.isHost,
-            isDriving: p.isDriving,
-            health: p.health,
-        }));
+            isDriving: p.isDriving || false,
+            health: p.health || 100,
+        });
     }
 
     // 3. NPCs existentes
     const existingNpcs = Array.from(npcs.values());
     if (existingNpcs.length > 0) {
-        ws.send(JSON.stringify({ type: 'SYNC_ALL_NPCS', npcs: existingNpcs }));
+        sendTo(ws, { type: 'SYNC_ALL_NPCS', npcs: existingNpcs });
     }
 
     ws.on('pong', () => { ws.isAlive = true; });
@@ -151,37 +149,61 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(raw);
             if (!data) return;
 
-            if (!data.type || data.type === 'PLAYER_UPDATE') {
-                handlePlayerUpdate(ws, data);
-                return;
-            }
-            if (data.type === 'NPC_SPAWN' || data.type === 'NPC_UPDATE') {
-                if (data.npc?.id) {
-                    npcs.set(data.npc.id, { ...data.npc, ownerId: ws.sessionId, lastUpdated: Date.now() });
-                    broadcastToOthers(ws, raw);
-                }
-                return;
-            }
-            if (data.type === 'NPC_BATCH_UPDATE' && Array.isArray(data.npcs)) {
-                const now = Date.now();
-                for (const npc of data.npcs) {
-                    if (npc?.id) npcs.set(npc.id, { ...npc, ownerId: ws.sessionId, lastUpdated: now });
-                }
-                broadcastToOthers(ws, raw);
-                return;
-            }
-            if (data.type === 'NPC_DESTROY' && data.npcId) {
-                npcs.delete(data.npcId);
-                broadcastToOthers(ws, raw);
-                return;
-            }
-            if (data.type === 'PLAYER_DAMAGE' && data.targetId) {
-                broadcastToOthers(ws, raw);
-                return;
-            }
-            // Keepalive del cliente: ignorar silenciosamente.
-            if (data.type === 'PING') {
-                return;
+            switch (data.type) {
+                case 'PING':
+                    // Silencio — el keepalive no necesita respuesta visible
+                    ws.isAlive = true;
+                    return;
+
+                case undefined:
+                case null:
+                case 'PLAYER_UPDATE':
+                    handlePlayerUpdate(ws, data);
+                    return;
+
+                case 'NPC_BATCH_UPDATE':
+                    if (Array.isArray(data.npcs)) {
+                        const now = Date.now();
+                        for (const npc of data.npcs) {
+                            if (npc?.id) {
+                                npcs.set(npc.id, {
+                                    ...npc,
+                                    ownerId: ws.sessionId,
+                                    lastUpdated: now
+                                });
+                            }
+                        }
+                        broadcastToOthers(ws, raw);
+                    }
+                    return;
+
+                case 'NPC_SPAWN':
+                case 'NPC_UPDATE':
+                    if (data.npc?.id) {
+                        npcs.set(data.npc.id, {
+                            ...data.npc,
+                            ownerId: ws.sessionId,
+                            lastUpdated: Date.now()
+                        });
+                        broadcastToOthers(ws, raw);
+                    }
+                    return;
+
+                case 'NPC_DESTROY':
+                    if (data.npcId) {
+                        npcs.delete(data.npcId);
+                        broadcastToOthers(ws, raw);
+                    }
+                    return;
+
+                case 'PLAYER_DAMAGE':
+                    if (data.targetId) {
+                        broadcastToOthers(ws, raw);
+                    }
+                    return;
+
+                default:
+                    console.log(`[?] Tipo desconocido: ${data.type}`);
             }
         } catch (e) {
             console.error('Error procesando mensaje:', e.message);
@@ -189,18 +211,31 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('close', () => {
-        console.log(`[-] Desconectado: ${ws.sessionId} (total restante: ${wss.clients.size - 1})`);
+        console.log(`[-] Desconectado: ${ws.sessionId} (restantes: ${wss.clients.size})`);
+
+        // Limpiar NPCs del jugador que se fue
+        const orphanedNpcs = [];
+        for (const [id, npc] of npcs.entries()) {
+            if (npc.ownerId === ws.sessionId) {
+                orphanedNpcs.push(id);
+                npcs.delete(id);
+            }
+        }
+
         players.delete(ws.sessionId);
-        broadcastAll(JSON.stringify({ type: 'DISCONNECT', id: ws.sessionId }));
+
+        broadcastAll({
+            type: 'DISCONNECT',
+            id: ws.sessionId,
+            orphanedNpcs,
+        });
     });
 });
 
 function handlePlayerUpdate(ws, data) {
-    // Calcular si este cliente debe ser Host:
-    // - Si no hay ningún Host activo en el radio → este cliente es Host.
-    // - Si hay Hosts cercanos → solo es Host si su UUID es el menor (desempate).
+    // Determinar si este cliente debe ser Host de zona:
+    // Host = ningún otro Host cercano con UUID menor.
     let nearbyHostMinId = null;
-
     for (const p of players.values()) {
         if (p.id === ws.sessionId || !p.isHost) continue;
         const dist = Math.sqrt(
@@ -218,7 +253,7 @@ function handlePlayerUpdate(ws, data) {
 
     if (ws.isHost !== shouldBeHost) {
         ws.isHost = shouldBeHost;
-        ws.send(JSON.stringify({ type: 'ROLE_UPDATE', isZoneHost: shouldBeHost }));
+        sendTo(ws, { type: 'ROLE_UPDATE', isZoneHost: shouldBeHost });
         console.log(`[Host] ${ws.sessionId.slice(0, 8)} isHost=${shouldBeHost}`);
     }
 
@@ -234,12 +269,13 @@ function handlePlayerUpdate(ws, data) {
         health: typeof data.health === 'number' ? data.health : 100,
     });
 
-    // Reenviar a todos los demás con el id del emisor.
-    broadcastToOthers(ws, JSON.stringify({
+    // Reenviar a todos los demás con el id del emisor
+    broadcastToOthers(ws, {
         ...data,
+        type: 'PLAYER_UPDATE',
         id: ws.sessionId,
         isHost: ws.isHost,
-    }));
+    });
 }
 
 server.on('close', () => {

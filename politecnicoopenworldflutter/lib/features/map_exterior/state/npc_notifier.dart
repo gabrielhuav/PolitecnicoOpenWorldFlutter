@@ -3,14 +3,12 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../domain/models/ai/npc_ai_coordinator.dart';
 import '../../../domain/models/npc.dart';
 import '../../../domain/models/geo_location.dart';
 import '../../../domain/models/npc_enums.dart';
-import '../../../multiplayer/multiplayer_notifier.dart';
 import 'camera_providers.dart';
 import 'map_providers.dart';
 import 'player_movement_notifier.dart';

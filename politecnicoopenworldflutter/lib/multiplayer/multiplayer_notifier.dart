@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpClient, HttpClientRequest, HttpClientResponse;
+import 'dart:io' show HttpClient;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -13,7 +13,7 @@ import '../features/map_exterior/state/player_health_notifier.dart';
 
 const double kMultiplayerMapRadiusMeters = 30000;
 const String kDefaultMultiplayerServerUrl =
-    'wss://politecnicoopenworldflutter.onrender.com/flutter';
+    'wss://politecnicoopenworld.onrender.com/flutter';
 
 final multiplayerServerUrlProvider =
     StateProvider<String>((ref) => kDefaultMultiplayerServerUrl);
@@ -147,16 +147,12 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _sub;
 
-  /// Keepalive cada 20 s para evitar el timeout de 30 s de Render Free.
+  /// Keepalive cada 10 s para evitar el timeout de 30 s de Render Free.
+  /// 10 s da margen amplio durante LoadingScreen (puede tardar 60 s).
   Timer? _keepaliveTimer;
 
-  String _lastAction = 'idle';
-  bool _lastFacingRight = true;
-  bool _lastIsDriving = false;
-
   // ── Warmup HTTP ─────────────────────────────────────────────────────
-  /// Render Free duerme el proceso tras inactividad. Un GET al /status
-  /// lo despierta. Esperamos hasta que responda antes de abrir el WS.
+
   Future<void> _warmupServer(String serverUrl) async {
     final httpUrl = serverUrl
         .replaceFirst('wss://', 'https://')
@@ -175,7 +171,8 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         await response.drain<void>();
         if (response.statusCode == 200) {
           AppLogger.log.i('Multiplayer: servidor activo (warmup OK)');
-          break;
+          client.close();
+          return;
         }
       } catch (e) {
         AppLogger.log.d('Multiplayer: warmup intento $attempt: $e');
@@ -185,6 +182,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
       }
     }
     client.close();
+    AppLogger.log.w('Multiplayer: warmup no confirmado, conectando igual');
   }
 
   // ── Conexión ────────────────────────────────────────────────────────
@@ -209,14 +207,11 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     AppLogger.log.i('Multiplayer: conectando a $serverUrl como "$playerName"');
 
     try {
-      // 1. Despertar Render antes de abrir el WebSocket.
       await _warmupServer(serverUrl);
 
-      // 2. Abrir WebSocket. pingInterval mantiene el socket vivo a nivel
-      //    de protocolo WS; el keepalive JSON cubre la capa de Render.
       _channel = IOWebSocketChannel.connect(
         Uri.parse(serverUrl),
-        pingInterval: const Duration(seconds: 20),
+        pingInterval: const Duration(seconds: 10),
       );
 
       await _channel!.ready;
@@ -227,17 +222,17 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
         onDone: _onDone,
       );
 
-      // 3. Keepalive JSON cada 20 s.
+      if (!mounted) return;
+      state = state.copyWith(status: MultiplayerStatus.connected);
+      AppLogger.log.i('Multiplayer: conexión establecida');
+
+      // Keepalive inmediato, cada 10 s.
       _keepaliveTimer?.cancel();
-      _keepaliveTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _keepaliveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
         if (state.isConnected) {
           _sendJson({'type': 'PING'});
         }
       });
-
-      if (!mounted) return;
-      state = state.copyWith(status: MultiplayerStatus.connected);
-      AppLogger.log.i('Multiplayer: conexion establecida');
     } catch (e) {
       AppLogger.log.e('Multiplayer: error al conectar', error: e);
       if (mounted) {
@@ -256,9 +251,10 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     bool isDriving = false,
   }) {
     if (!state.isConnected) return;
-    _lastAction = action;
-    _lastFacingRight = facingRight;
-    _lastIsDriving = isDriving;
+    double health = 100;
+    try {
+      health = _ref.read(playerHealthProvider).health;
+    } catch (_) {}
     _sendJson({
       'type': 'PLAYER_UPDATE',
       'x': pos.longitude,
@@ -269,7 +265,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
       'action': action,
       'facingRight': facingRight,
       'isDriving': isDriving,
-      'health': _ref.read(playerHealthProvider).health,
+      'health': health,
     });
   }
 
@@ -318,7 +314,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
       switch (type) {
         case 'PING':
         case 'PONG':
-          break; // silencio
+          break;
 
         case 'SESSION_INIT':
           final id = data['sessionId'] as String?;
@@ -374,7 +370,7 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
 
     if (id != null && players.containsKey(id)) {
       players = Map.from(players)..remove(id);
-      AppLogger.log.i('Multiplayer: salio $id');
+      AppLogger.log.i('Multiplayer: salió $id');
     }
     if (orphans is List) {
       npcs = Map.from(npcs);
@@ -457,16 +453,25 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
 
     if (existing == null) {
       updated[id] = RemotePlayer(
-        id: id, position: pos, displayName: displayName,
-        isHost: isHost, isDriving: isDriving,
-        action: action, facingRight: facingRight, health: health,
+        id: id,
+        position: pos,
+        displayName: displayName,
+        isHost: isHost,
+        isDriving: isDriving,
+        action: action,
+        facingRight: facingRight,
+        health: health,
       );
       AppLogger.log.i('Multiplayer: nuevo remoto $id ($displayName)');
     } else {
       updated[id] = existing.copyWith(
-        position: pos, displayName: displayName, isHost: isHost,
-        isDriving: isDriving, action: action,
-        facingRight: facingRight, health: health,
+        position: pos,
+        displayName: displayName,
+        isHost: isHost,
+        isDriving: isDriving,
+        action: action,
+        facingRight: facingRight,
+        health: health,
       );
     }
     state = state.copyWith(players: updated);
@@ -489,8 +494,10 @@ class MultiplayerNotifier extends StateNotifier<MultiplayerState> {
     if (targetId == null || targetId != state.sessionId) return;
     final damage = (data['damage'] as num?)?.toDouble() ?? 0;
     if (damage <= 0) return;
-    _ref.read(playerHealthProvider.notifier).takeDamage(damage);
-    AppLogger.log.i('Multiplayer: recibi dano $damage');
+    try {
+      _ref.read(playerHealthProvider.notifier).takeDamage(damage);
+    } catch (_) {}
+    AppLogger.log.i('Multiplayer: recibí daño $damage');
   }
 
   RemoteNpc? _parseNpc(Map<String, dynamic> data) {
