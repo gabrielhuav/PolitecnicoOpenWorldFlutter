@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../ui/theme/app_theme.dart';
 import '../../../ui/theme/theme_extensions.dart';
+import '../../../domain/models/game_session.dart';
+import '../../map_exterior/state/session_providers.dart';
 import '../../map_exterior/ui/loading_screen.dart';
 import '../state/character_provider.dart';
 import 'components/character_card.dart';
+import '../../settings/state/game_settings_providers.dart';
 
 class CharacterSelectionScreen extends ConsumerStatefulWidget {
   const CharacterSelectionScreen({Key? key}) : super(key: key);
@@ -45,22 +48,85 @@ class _CharacterSelectionScreenState
     );
   }
 
-  void _startGame(BuildContext context) {
+  Future<void> _startGame(BuildContext context) async {
     if (_gameStarting) return;
     setState(() => _gameStarting = true);
 
+    try {
+      // 1. Verificamos cuántas partidas existen actualmente
+      final sessions = await ref.read(allGameSessionsProvider.future);
+
+      // 2. Si hay 4 o más, pausamos la carga y mostramos el diálogo
+      if (sessions.length >= 4) {
+        setState(() => _gameStarting = false);
+        if (!mounted) return;
+        _showOverwriteDialog(context, sessions);
+        return;
+      }
+
+      // 3. Si hay espacio, continuamos normalmente
+      _proceedToLoadingScreen(context);
+    } catch (e) {
+      AppLogger.log.e('Error al iniciar partida', error: e);
+      if (mounted) setState(() => _gameStarting = false);
+    }
+  }
+
+  void _proceedToLoadingScreen(BuildContext context) {
     AppLogger.log.i(
       'Iniciando partida con personaje: ${ref.read(selectedCharacterProvider).id}',
     );
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoadingScreen()),
+    );
+  }
 
-    try {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoadingScreen()),
-      );
-    } catch (_) {
-      if (mounted) setState(() => _gameStarting = false);
-    }
+  void _showOverwriteDialog(BuildContext context, List<GameSession> sessions) {
+    final theme = ref.appTheme; // Solo para acceder a colores consistentes
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ranuras de guardado llenas (4/4)'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Debes seleccionar una partida para reemplazar:'),
+              const SizedBox(height: 10),
+              // Generamos una lista clickeable con las partidas existentes
+              ...sessions.map((session) => ListTile(
+                leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                title: Text(session.characterName),
+                subtitle: Text('Último guardado: ${session.updatedAt.toLocal().toString().split('.')[0]}'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  setState(() => _gameStarting = true);
+                  
+                  // Borramos la partida seleccionada usando el repositorio
+                  await ref.read(gameSessionRepositoryProvider).delete(session.id);
+                  // Refrescamos la lista de la caché
+                  ref.invalidate(allGameSessionsProvider);
+                  
+                  if (!mounted) return;
+                  // Iniciamos la nueva partida
+                  _proceedToLoadingScreen(context);
+                },
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
