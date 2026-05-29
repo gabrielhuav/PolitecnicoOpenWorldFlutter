@@ -8,6 +8,7 @@ import '../state/player_movement_notifier.dart';
 import '../../main_menu/ui/components/menu_button.dart';
 import '../../settings/ui/game_settings_screen.dart';
 import '../../main_menu/ui/start_menu_screen.dart';
+import '../../../multiplayer/multiplayer_notifier.dart';
 
 /// Menú de pausa accesible desde el mapa. Se renderiza como una capa
 /// translúcida sobre el [WorldMapScreen] (estilo Minecraft): el mapa y el
@@ -71,6 +72,7 @@ class GameMenuScreen extends ConsumerWidget {
   /// Vertical layout view layout (Portrait)
   Widget _buildPortraitLayout(
       BuildContext context, WidgetRef ref, AppTheme theme) {
+    final isMultiplayer = ref.watch(multiplayerProvider).status != MultiplayerStatus.disconnected;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
@@ -100,6 +102,7 @@ class GameMenuScreen extends ConsumerWidget {
               onPressed: () => Navigator.pop(context),
             ),
             const SizedBox(height: 15),
+            if (!isMultiplayer)
             MenuButton(
               title: 'Guardar partida',
               icon: Icons.save_outlined,
@@ -135,6 +138,7 @@ class GameMenuScreen extends ConsumerWidget {
   /// Splits your screen cleanly into two halves: Header info on the left, buttons grid on the right.
   Widget _buildLandscapeLayout(
       BuildContext context, WidgetRef ref, AppTheme theme) {
+        final isMultiplayer = ref.watch(multiplayerProvider).isConnected;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
       child: Row(
@@ -184,6 +188,7 @@ class GameMenuScreen extends ConsumerWidget {
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(height: 12),
+                    if (!isMultiplayer)
                     MenuButton(
                       title: 'Guardar partida',
                       icon: Icons.save_outlined,
