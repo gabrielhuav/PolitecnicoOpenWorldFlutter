@@ -23,8 +23,8 @@ class NpcSpawner {
   /// Tope absoluto.
   static const int _hardCap = 400;
 
-  static const double _personSpeed = 1.4;
-  static const double _carSpeed = 9.0;
+  static const double _personSpeed = 5.0;
+  static const double _carSpeed = 16.0;
 
   /// Probabilidad de intentar spawnear un coche. Se elevó al 30% para
   /// que haya una proporción más visible de vehículos en el mapa.

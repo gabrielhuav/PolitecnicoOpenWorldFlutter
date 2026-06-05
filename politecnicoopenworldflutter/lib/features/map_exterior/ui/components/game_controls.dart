@@ -3,20 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../settings/state/game_settings_providers.dart';
 import '../../state/combat_notifier.dart';
+// Importamos el notificador de movimiento
+import '../../state/player_movement_notifier.dart'; 
 import 'action_buttons.dart';
 import 'movement_control.dart';
 
 /// Contenedor de los controles del jugador en pantalla. Coloca
 /// [MovementControl] (D-pad o joystick, según ajustes) en un lado de la
 /// pantalla y [ActionButtons] (rombo de 4 botones) en el otro.
-///
-/// El lado de cada uno depende de [invertControlsProvider]:
-///  - false (por defecto): movimiento a la izquierda, acción a la derecha.
-///  - true: posiciones invertidas (zurdos o preferencia personal).
-///
-/// El botón X (onActionLeft) dispara un golpe en combate multijugador.
-/// En singleplayer tryPunch() simplemente no encuentra objetivos y no
-/// hace nada, así que el botón es inofensivo fuera de línea.
 class GameControls extends ConsumerWidget {
   const GameControls({super.key});
 
@@ -26,7 +20,14 @@ class GameControls extends ConsumerWidget {
 
     const movement = MovementControl();
     final actions = ActionButtons(
+      // Botón X (Izquierda)
       onActionLeft: () => ref.read(combatProvider.notifier).tryPunch(),
+      
+      // Botón A (Abajo) -> Activa o desactiva la mecánica de correr
+      onActionBottom: () {
+        final isRunning = ref.read(playerMovementProvider).isRunning;
+        ref.read(playerMovementProvider.notifier).setRunning(!isRunning);
+      },
     );
 
     final Widget left = inverted ? actions : movement;
@@ -37,7 +38,10 @@ class GameControls extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: [left, right],
+        children: [
+          left,
+          right,
+        ],
       ),
     );
   }
