@@ -10,10 +10,11 @@ import 'package:web_socket_channel/io.dart';
 import '../core/utils/app_logger.dart';
 import '../domain/models/npc.dart';
 import '../features/map_exterior/state/player_health_notifier.dart';
+import '../core/utils/network_constants.dart';
 
 const double kMultiplayerMapRadiusMeters = 30000;
 const String kDefaultMultiplayerServerUrl =
-    'wss://politecnicoopenworld.onrender.com/flutter';
+    NetworkConstants.serverWebSocketUrl;
 
 final multiplayerServerUrlProvider =
     StateProvider<String>((ref) => kDefaultMultiplayerServerUrl);

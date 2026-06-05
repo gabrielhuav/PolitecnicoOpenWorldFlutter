@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/settings/state/game_settings_providers.dart';
 import '../../features/settings/state/map_tile_provider.dart';
 import '../../ui/theme/app_themes.dart';
+import '../../core/utils/network_constants.dart';
 
 class SettingsRepository {
   final SharedPreferences _prefs;
@@ -71,7 +72,7 @@ class SettingsRepository {
   // Multijugador
   // IMPORTANTE: limpiar la URL vieja si está guardada sin /flutter
   String get multiplayerServerUrl {
-    const correctUrl = 'wss://politecnicoopenworld.onrender.com/flutter';
+    const correctUrl = NetworkConstants.serverWebSocketUrl;
     final saved = _prefs.getString('multiplayer_server_url') ?? '';
     // Si la URL guardada no termina en /flutter, la descartamos y usamos el default.
     if (saved.isEmpty || !saved.endsWith('/flutter')) {
