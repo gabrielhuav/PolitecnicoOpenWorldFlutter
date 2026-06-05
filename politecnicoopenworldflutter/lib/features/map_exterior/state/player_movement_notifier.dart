@@ -1,8 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import '../../settings/state/game_settings_providers.dart';
 import 'location_providers.dart';
+import '../../settings/state/game_settings_providers.dart';
+import '../../../multiplayer/multiplayer_notifier.dart';
 
 enum PlayerDirection { up, down, left, right }
 
@@ -100,6 +101,18 @@ class PlayerMovementNotifier extends StateNotifier<PlayerState> {
       ),
       isMoving: true,
       facing: newFacing,
+    );
+    // Usamos el estado isRunning para enviar la acción
+    final String currentAction = state.isRunning ? 'run' : 'walk';
+    
+    // Determinar hacia dónde mira para tu propiedad facingRight
+    final bool isFacingRight = state.facing != PlayerDirection.left;
+
+    ref.read(multiplayerProvider.notifier).broadcastMovement(
+      state.position,
+      action: currentAction,
+      facingRight: isFacingRight,
+      isDriving: false,
     );
   }
 

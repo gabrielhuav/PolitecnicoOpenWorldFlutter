@@ -4,16 +4,18 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../multiplayer/multiplayer_notifier.dart';
+import '../../../../multiplayer/multiplayer_layer.dart';
 import '../../../ui/theme/app_theme.dart';
 import '../../../ui/theme/theme_extensions.dart';
 import '../../settings/state/map_tile_provider.dart';
-import '../state/camera_providers.dart';
 import '../../main_menu/state/character_provider.dart';
+import '../../../core/utils/network_constants.dart';
+import '../../../multiplayer/multiplayer_notifier.dart';
+import '../state/camera_providers.dart';
 import '../state/player_movement_notifier.dart';
 import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
-import '../../../../multiplayer/multiplayer_notifier.dart';
-import '../../../../multiplayer/multiplayer_layer.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
 import 'components/map_status_indicator.dart';
@@ -150,6 +152,17 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
               facingRight: next.facing == PlayerDirection.right,
               isDriving: false,
             );
+      }
+    });
+
+    // Usamos Future.microtask para que no choque con la construcción del frame actual
+    Future.microtask(() {
+      final multiState = ref.read(multiplayerProvider);
+      if (!multiState.isConnected && multiState.status != MultiplayerStatus.connecting) {
+        ref.read(multiplayerProvider.notifier).connect(
+          serverUrl: NetworkConstants.serverWebSocketUrl,
+          playerName: 'Jugador_${DateTime.now().millisecondsSinceEpoch % 1000}', // Nombre temporal
+        );
       }
     });
 
