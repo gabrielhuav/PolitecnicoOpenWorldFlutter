@@ -42,6 +42,8 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
     'Usa el D-pad para moverte por el mapa del Politécnico.',
     'El botón de recentrar te regresa a tu posición actual en el mapa.',
     'Próximamente podrás personalizar tu propio personaje.',
+    'Preciona el botón de X para subir a vehículos.',
+    'Preciona el botón de A para hacer un sprint.',
   ];
 
   // Fallback usado cuando el GPS no está disponible.
