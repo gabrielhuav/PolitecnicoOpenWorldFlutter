@@ -3,27 +3,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../settings/state/game_settings_providers.dart';
 import '../../state/combat_notifier.dart';
-// Importamos el notificador de movimiento
-import '../../state/player_movement_notifier.dart'; 
+import '../../state/player_movement_notifier.dart';
+import '../../state/vehicle_notifier.dart';
 import 'action_buttons.dart';
+import 'driving_controls.dart';
 import 'movement_control.dart';
 
-/// Contenedor de los controles del jugador en pantalla. Coloca
-/// [MovementControl] (D-pad o joystick, según ajustes) en un lado de la
-/// pantalla y [ActionButtons] (rombo de 4 botones) en el otro.
+/// Contenedor de los controles del jugador en pantalla.
+///
+/// Cuando [vehicleProvider.isDriving] es false, muestra los controles
+/// peatonales (D-pad/joystick + ActionButtons).
+/// Cuando es true, muestra [DrivingControls] (volante + pedales).
 class GameControls extends ConsumerWidget {
   const GameControls({super.key});
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDriving = ref.watch(
+      vehicleProvider.select((s) => s.isDriving),
+    );
+
+    if (isDriving) {
+      return const DrivingControls();
+    }
+
+    return _WalkingControls();
+  }
+}
+
+/// Controles peatonales originales con la logica de X modificada:
+/// X intenta subirse al coche mas cercano; si no hay coche, golpea.
+class _WalkingControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final inverted = ref.watch(invertControlsProvider);
 
     const movement = MovementControl();
     final actions = ActionButtons(
-      // Botón X (Izquierda)
-      onActionLeft: () => ref.read(combatProvider.notifier).tryPunch(),
-      
-      // Botón A (Abajo) -> Activa o desactiva la mecánica de correr
+      // X (izquierda): subir al coche
+      onActionLeft: () {
+        final entered =
+            ref.read(vehicleProvider.notifier).tryEnterNearestVehicle();
+      },
+
+      // A (abajo): alternar correr
       onActionBottom: () {
         final isRunning = ref.read(playerMovementProvider).isRunning;
         ref.read(playerMovementProvider.notifier).setRunning(!isRunning);
@@ -38,10 +61,7 @@ class GameControls extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          left,
-          right,
-        ],
+        children: [left, right],
       ),
     );
   }

@@ -10,12 +10,11 @@ import '../../../ui/theme/app_theme.dart';
 import '../../../ui/theme/theme_extensions.dart';
 import '../../settings/state/map_tile_provider.dart';
 import '../../main_menu/state/character_provider.dart';
-import '../../../core/utils/network_constants.dart';
-import '../../../multiplayer/multiplayer_notifier.dart';
 import '../state/camera_providers.dart';
 import '../state/player_movement_notifier.dart';
 import '../state/chunk_streamer_notifier.dart';
 import '../state/npc_notifier.dart';
+import '../state/vehicle_notifier.dart';
 import 'components/npc_marker_layer.dart';
 import 'components/game_controls.dart';
 import 'components/map_status_indicator.dart';
@@ -72,11 +71,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
       ref.read(npcNotifierProvider.notifier).start();
       ref.read(chunkStreamerProvider.notifier).start(initialCenter);
 
-      // ── BROADCAST INICIAL ──────────────────────────────────────────
-      // Manda la posición al servidor inmediatamente al entrar al mapa,
-      // sin esperar a que el jugador mueva el joystick.
-      // Sin esto, el servidor no registra al jugador y los demás
-      // no lo ven hasta que se mueve por primera vez.
       final mp = ref.read(multiplayerProvider);
       if (mp.status == MultiplayerStatus.connected) {
         ref.read(multiplayerProvider.notifier).broadcastMovement(
@@ -143,14 +137,14 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
         _mapController.move(next.position, _mapController.camera.zoom);
       } catch (_) {}
 
-      // Broadcast SOLO en multijugador.
       final mp = ref.read(multiplayerProvider);
       if (mp.status == MultiplayerStatus.connected) {
+        final isDriving = ref.read(vehicleProvider).isDriving;
         ref.read(multiplayerProvider.notifier).broadcastMovement(
               next.position,
               action: next.isMoving ? 'walk' : 'idle',
               facingRight: next.facing == PlayerDirection.right,
-              isDriving: false,
+              isDriving: isDriving,
             );
       }
     });
@@ -193,7 +187,7 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                     width: 56,
                     height: 56,
                     alignment: Alignment.center,
-                    child: _PlayerMarker(
+                    child: _PlayerMarkerContainer(
                       theme: theme,
                       playerState: playerState,
                       spritesheetPath: character.spritesheetPath ??
@@ -212,7 +206,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             child: const Center(child: MapStatusIndicator()),
           ),
 
-          // Botón menú
           Positioned(
             top: 50,
             left: 20,
@@ -226,7 +219,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
           ),
 
-          // HUD del personaje + estado multijugador
           Positioned(
             top: 50,
             right: 20,
@@ -267,13 +259,11 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
                     ],
                   ),
                 ),
-                // Badge de estado multijugador
                 _MultiplayerBadge(),
               ],
             ),
           ),
 
-          // Recentrar
           Positioned(
             bottom: 220,
             right: 20,
@@ -289,7 +279,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             ),
           ),
 
-          // Controles
           const Positioned(
             bottom: 30,
             left: 0,
@@ -297,7 +286,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
             child: GameControls(),
           ),
 
-          // Atribución
           Positioned(
             bottom: 4,
             right: 6,
@@ -326,8 +314,61 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
   }
 }
 
-/// Badge pequeño que muestra el estado de la conexión multijugador.
-/// Visible solo cuando está conectado; muestra jugadores remotos y rol.
+// ── Marcador del jugador: alterna sprite peatonal / icono de coche ───
+
+class _PlayerMarkerContainer extends ConsumerWidget {
+  final AppTheme theme;
+  final PlayerState playerState;
+  final String spritesheetPath;
+
+  const _PlayerMarkerContainer({
+    required this.theme,
+    required this.playerState,
+    required this.spritesheetPath,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDriving = ref.watch(vehicleProvider.select((s) => s.isDriving));
+
+    if (isDriving) {
+      final rotation = ref.watch(
+        vehicleProvider.select((s) => s.vehicleRotation),
+      );
+      return Transform.rotate(
+        angle: rotation * math.pi / 180,
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.black87, width: 1.5),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(Icons.directions_car, color: Colors.white, size: 20),
+          ),
+        ),
+      );
+    }
+
+    return _PlayerMarker(
+      theme: theme,
+      playerState: playerState,
+      spritesheetPath: spritesheetPath,
+    );
+  }
+}
+
+// ── Badge multijugador ──────────────────────────────────────────────
+
 class _MultiplayerBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -395,6 +436,8 @@ class _MultiplayerBadge extends ConsumerWidget {
     );
   }
 }
+
+// ── Sprite peatonal ─────────────────────────────────────────────────
 
 class _PlayerMarker extends StatelessWidget {
   final AppTheme theme;

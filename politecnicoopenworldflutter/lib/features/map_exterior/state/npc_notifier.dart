@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../../domain/models/ai/npc_ai_coordinator.dart';
@@ -69,6 +70,40 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     AppLogger.log.d('NpcNotifier: bucle reanudado');
   }
 
+  /// Retira un NPC por su id (usado al abordar un vehiculo).
+  void removeNpc(String id) {
+    _coordinator.removeById(id);
+    if (mounted) {
+      state = _coordinator.npcs;
+    }
+    AppLogger.log.d('NpcNotifier: NPC $id retirado (vehicle boarding)');
+  }
+
+  /// Inyecta un coche estacionado en el mundo (usado al bajar del vehiculo).
+  void spawnParkedCar({
+    required LatLng position,
+    required CarModel carModel,
+    required int carColor,
+    required double rotationAngle,
+  }) {
+    final parked = Npc(
+      type: NpcType.car,
+      location: GeoLocation(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      ),
+      speed: 0.0,
+      carModel: carModel,
+      carColor: carColor,
+      rotationAngle: rotationAngle,
+    );
+    _coordinator.inject(parked);
+    if (mounted) {
+      state = _coordinator.npcs;
+    }
+    AppLogger.log.d('NpcNotifier: coche estacionado ${parked.id}');
+  }
+
   void setDesiredCount(int count) {
     _coordinator.setDesiredCount(count);
   }
@@ -121,27 +156,13 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     return mp.isZoneHost ? _NpcMode.host : _NpcMode.client;
   }
 
-  /// Transiciones limpias para evitar fantasmas al cambiar de modo:
-  ///   host  → client : dejé de ser Host (otro me ganó). Mis NPCs locales
-  ///                    ya no me pertenecen; me los reenviará el otro Host
-  ///                    o el GC del servidor los borrará. Aquí solo dejo
-  ///                    de simular.
-  ///   client → host  : me promovieron a Host. Empiezo a simular desde
-  ///                    cero alrededor del jugador (el coordinator hace
-  ///                    el spawn inicial en el primer tick).
-  ///   * → offline    : me desconecté. Reseteo todo y arranco singleplayer
-  ///                    con el coordinator limpio.
-  ///   offline → *    : me conecté. Tiro lo local y dejo que el servidor
-  ///                    dicte el estado mientras se decide mi rol.
   void _onModeChanged(_NpcMode prev, _NpcMode next) {
-    AppLogger.log.i('NpcNotifier: modo $prev → $next');
+    AppLogger.log.i('NpcNotifier: modo $prev -> $next');
     _coordinator.clear();
     _tickCounter = 0;
     if (mounted) state = const [];
   }
 
-  /// Cliente puro: convierte el estado remoto del servidor en Npc
-  /// locales para que la capa de marcadores los dibuje. No corre IA.
   void _syncFromRemoteNpcs() {
     final mp = _ref.read(multiplayerProvider);
     final remoteNpcs = mp.remoteNpcs;
@@ -172,7 +193,6 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     state = synced;
   }
 
-  /// Host u offline: corre la simulación local.
   void _runLocalAiLogic() {
     final ways = _ref.read(mapStateProvider).ways;
     if (ways.isEmpty) return;
@@ -198,7 +218,7 @@ class NpcNotifier extends StateNotifier<List<Npc>> {
     }
 
     if (updated.length != _lastReportedCount) {
-      AppLogger.log.i('NPC count: $_lastReportedCount → ${updated.length}');
+      AppLogger.log.i('NPC count: $_lastReportedCount -> ${updated.length}');
       _lastReportedCount = updated.length;
     }
   }
