@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/map_constants.dart';
 import 'map_providers.dart';
 import 'player_movement_notifier.dart';
 
@@ -38,8 +39,6 @@ class ChunkStreamerState {
 class ChunkStreamerNotifier extends StateNotifier<ChunkStreamerState> {
   final Ref _ref;
 
-  static const double _triggerDistanceMeters = 500;
-  static const double _coverageRadiusMeters = 5000;
   static const Distance _dist = Distance();
 
   ProviderSubscription<PlayerState>? _sub;
@@ -56,6 +55,42 @@ class ChunkStreamerNotifier extends StateNotifier<ChunkStreamerState> {
       'ChunkStreamer iniciado en '
       '(${initialCenter.latitude}, ${initialCenter.longitude})',
     );
+
+    // En MP, disparar expansion inmediata al radio completo
+    // en background. El jugador ya esta en el mapa jugando.
+    _tryImmediateExpansion(initialCenter);
+  }
+
+  Future<void> _tryImmediateExpansion(LatLng center) async {
+    final double targetRadius;
+    try {
+      final mp = _ref.read(multiplayerProvider);
+      if (mp.isConnected) {
+        targetRadius = MapConstants.multiplayerRadiusMeters;
+      } else {
+        return; // SP no necesita expansion inmediata
+      }
+    } catch (_) {
+      return;
+    }
+
+    // Pequeña pausa para no competir con el render del primer frame
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!state.active || !mounted) return;
+
+    AppLogger.log.i(
+      'ChunkStreamer: expansion inmediata MP a ${targetRadius.toStringAsFixed(0)} m',
+    );
+    state = state.copyWith(loading: true);
+    try {
+      await _ref.read(mapStateProvider).expandCoverage(
+            initialLat: center.latitude,
+            initialLon: center.longitude,
+            radiusMeters: targetRadius,
+          );
+    } finally {
+      if (mounted) state = state.copyWith(loading: false);
+    }
   }
 
   /// Detiene el streamer. No muta [state] porque puede ser llamado desde
@@ -80,18 +115,26 @@ class ChunkStreamerNotifier extends StateNotifier<ChunkStreamerState> {
     final last = state.lastLoadCenter;
     if (last == null) return;
     final moved = _dist(last, next);
-    if (moved < _triggerDistanceMeters) return;
+    if (moved < MapConstants.chunkTriggerDistanceMeters) return;
+
+    double radius = MapConstants.singleplayerRadiusMeters;
+    try {
+      final mp = _ref.read(multiplayerProvider);
+      if (mp.isConnected) {
+        radius = MapConstants.multiplayerRadiusMeters;
+      }
+    } catch (_) {}
 
     AppLogger.log.i(
-      'ChunkStreamer dispara expansión: '
-      '${moved.toStringAsFixed(0)} m desde el último centro',
+      'ChunkStreamer dispara expansion: '
+      '${moved.toStringAsFixed(0)} m desde el ultimo centro (radio: ${radius.toStringAsFixed(0)} m)',
     );
     state = state.copyWith(loading: true, lastLoadCenter: next);
     try {
       await _ref.read(mapStateProvider).expandCoverage(
-            centerLat: next.latitude,
-            centerLon: next.longitude,
-            radiusMeters: _coverageRadiusMeters,
+            initialLat: next.latitude,
+            initialLon: next.longitude,
+            radiusMeters: radius,
           );
     } finally {
       if (mounted) state = state.copyWith(loading: false);

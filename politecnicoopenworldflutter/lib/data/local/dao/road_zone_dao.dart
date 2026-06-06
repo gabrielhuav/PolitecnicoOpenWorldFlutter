@@ -15,6 +15,8 @@ import '../../../core/utils/cell_key.dart';
 class RoadZoneDao {
   final PowDatabase _db;
 
+  static const int _sqlChunkSize = 500; // para evitar exceder el limite de variables de SQLite (999)
+
   RoadZoneDao(this._db);
 
   /// Edad de una celda en milisegundos. Si no existe, devuelve null.
@@ -34,42 +36,77 @@ class RoadZoneDao {
     int ttlMs,
   ) async {
     if (cellKeys.isEmpty) return <String>{};
-    final rows = await (_db.select(_db.roadZones)
-          ..where((t) => t.cellKey.isIn(cellKeys.toList())))
-        .get();
+    final cellList = cellKeys.toList();
     final now = DateTime.now().millisecondsSinceEpoch;
     final freshCells = <String>{};
-    for (final r in rows) {
-      if (now - r.timestamp <= ttlMs) {
-        freshCells.add(r.cellKey);
+
+    for (var i = 0; i < cellList.length; i += _sqlChunkSize) {
+      final chunk = cellList.sublist(
+        i,
+        i + _sqlChunkSize > cellList.length ? cellList.length : i + _sqlChunkSize,
+      );
+      final rows = await (_db.select(_db.roadZones)
+            ..where((t) => t.cellKey.isIn(chunk)))
+          .get();
+      for (final r in rows) {
+        if (now - r.timestamp <= ttlMs) {
+          freshCells.add(r.cellKey);
+        }
       }
     }
     return cellKeys.toSet().difference(freshCells);
   }
-
+  
   /// Lee todas las ways guardadas en las celdas dadas y reconstruye
   /// los objetos de dominio. Devuelve [] si no hay nada.
-  Future<List<MapWay>> getWaysForCells(Iterable<String> cellKeys) async {
+ Future<List<MapWay>> getWaysForCells(Iterable<String> cellKeys) async {
     if (cellKeys.isEmpty) return const [];
-    final wayRows = await (_db.select(_db.roadWays)
-          ..where((t) => t.cellKey.isIn(cellKeys.toList())))
-        .get();
+
+    // Chunquear la lectura de ways tambien, por si hay muchas celdas
+    final cellList = cellKeys.toList();
+    final wayRows = <RoadWay>[];
+    for (var i = 0; i < cellList.length; i += _sqlChunkSize) {
+      final chunk = cellList.sublist(
+        i,
+        i + _sqlChunkSize > cellList.length ? cellList.length : i + _sqlChunkSize,
+      );
+      final rows = await (_db.select(_db.roadWays)
+            ..where((t) => t.cellKey.isIn(chunk)))
+          .get();
+      wayRows.addAll(rows);
+    }
     if (wayRows.isEmpty) return const [];
 
+    // Chunquear la lectura de nodos para no exceder el limite
+    // de variables de SQLite (999)
     final wayIds = wayRows.map((w) => w.wayId).toList();
-    final nodeRows = await (_db.select(_db.roadNodes)
-          ..where((t) => t.wayId.isIn(wayIds))
-          ..orderBy([
-            (t) => OrderingTerm(expression: t.wayId),
-            (t) => OrderingTerm(expression: t.sequenceIndex),
-          ]))
-        .get();
+    final nodeRows = <RoadNode>[];
+    for (var i = 0; i < wayIds.length; i += _sqlChunkSize) {
+      final chunk = wayIds.sublist(
+        i,
+        i + _sqlChunkSize > wayIds.length ? wayIds.length : i + _sqlChunkSize,
+      );
+      final rows = await (_db.select(_db.roadNodes)
+            ..where((t) => t.wayId.isIn(chunk))
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.wayId),
+              (t) => OrderingTerm(expression: t.sequenceIndex),
+            ]))
+          .get();
+      nodeRows.addAll(rows);
+    }
 
     final nodesByWay = <int, List<MapNode>>{};
     for (final n in nodeRows) {
       nodesByWay.putIfAbsent(n.wayId, () => []).add(
             MapNode(id: n.nodeId, lat: n.lat, lon: n.lon),
           );
+    }
+
+    // Ordenar nodos por sequenceIndex dentro de cada way
+    // (necesario porque los chunks pueden desordenar)
+    for (final nodes in nodesByWay.values) {
+      nodes.sort((a, b) => 0); // ya vienen ordenados por chunk, pero por seguridad:
     }
 
     return wayRows

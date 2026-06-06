@@ -11,8 +11,9 @@ import '../core/utils/app_logger.dart';
 import '../domain/models/npc.dart';
 import '../features/map_exterior/state/player_health_notifier.dart';
 import '../core/utils/network_constants.dart';
+import '../core/utils/map_constants.dart';
 
-const double kMultiplayerMapRadiusMeters = 30000;
+const double kMultiplayerMapRadiusMeters = MapConstants.multiplayerRadiusMeters;
 const String kDefaultMultiplayerServerUrl =
     NetworkConstants.serverWebSocketUrl;
 

@@ -86,7 +86,8 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => const LoadingScreen(isResuming: false),
+        builder: (_) => const LoadingScreen(isMultiplayer: true),
+
       ),
     );
   }

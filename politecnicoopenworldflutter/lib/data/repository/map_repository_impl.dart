@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../core/utils/app_logger.dart';
 import '../../core/utils/cell_key.dart';
 import '../../domain/models/map_way.dart';
+import '../../core/utils/map_constants.dart';
 import '../local/dao/road_zone_dao.dart';
 import '../network/overpass_repository.dart';
 
@@ -75,7 +76,7 @@ class MapRepository {
   Future<List<MapWay>> getRoadsForLocation(
     double lat,
     double lon, {
-    double radiusMeters = 5000,
+    double radiusMeters = MapConstants.singleplayerRadiusMeters,
     void Function(MapLoadProgress)? onProgress,
   }) async {
     final allCells = cellKeysInRadius(lat, lon, radiusMeters);

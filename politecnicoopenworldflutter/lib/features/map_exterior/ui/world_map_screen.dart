@@ -155,17 +155,6 @@ class _WorldMapScreenState extends ConsumerState<WorldMapScreen> {
       }
     });
 
-    // Usamos Future.microtask para que no choque con la construcción del frame actual
-    Future.microtask(() {
-      final multiState = ref.read(multiplayerProvider);
-      if (!multiState.isConnected && multiState.status != MultiplayerStatus.connecting) {
-        ref.read(multiplayerProvider.notifier).connect(
-          serverUrl: NetworkConstants.serverWebSocketUrl,
-          playerName: 'Jugador_${DateTime.now().millisecondsSinceEpoch % 1000}', // Nombre temporal
-        );
-      }
-    });
-
     return Scaffold(
       body: Stack(
         children: [

@@ -9,20 +9,23 @@ import '../../../ui/theme/theme_extensions.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/providers.dart';
 import '../../../data/location/location_permission_status.dart';
+import '../../../core/utils/map_constants.dart';
 import '../../main_menu/state/character_provider.dart';
-import '../state/player_movement_notifier.dart';
 import '../../main_menu/ui/character_selection_screen.dart';
 import '../../main_menu/ui/start_menu_screen.dart';
+import '../state/player_movement_notifier.dart';
 import 'world_map_screen.dart';
 
 class LoadingScreen extends ConsumerStatefulWidget {
   final bool isResuming;
   final String? resumeSessionId;
+  final bool isMultiplayer;
 
   const LoadingScreen({
     Key? key,
     this.isResuming = false,
     this.resumeSessionId,
+    this.isMultiplayer = false,
   }) : super(key: key);
 
   @override
@@ -89,28 +92,31 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
     _loadStarted = true;
 
     try {
-      // Resolver dónde va a estar el jugador.
-      LatLng targetCoords; // Declaramos la variable aquí para usarla en ambos casos
+      LatLng targetCoords;
 
-      if (widget.isResuming) {
+      if (widget.isMultiplayer) {
+        // Multiplayer: resolvemos posicion y cargamos mapa,
+        _setStatus('Conectando al servidor...');
+        targetCoords = await _resolveSpawnLocation();
+
+      } else if (widget.isResuming) {
         _setStatus('Recuperando partida guardada...');
         final sessionId = widget.resumeSessionId;
         if (sessionId == null) {
-          throw 'ID de sesión inválido para reanudar.';
+          throw 'ID de sesion invalido para reanudar.';
         }
 
         final session = await ref
             .read(activeGameSessionProvider.notifier)
             .resume(sessionId);
         if (session == null) {
-          throw 'No se encontró el registro de la partida guardada.';
+          throw 'No se encontro el registro de la partida guardada.';
         }
         targetCoords = LatLng(session.lastLat, session.lastLon);
       } else {
-        _setStatus('Solicitando permiso de ubicación...');
+        _setStatus('Solicitando permiso de ubicacion...');
         targetCoords = await _resolveSpawnLocation();
 
-        // Para partida nueva, registrar la sesión con el spawn ya resuelto.
         _setStatus('Guardando nueva partida...');
         final character = ref.read(selectedCharacterProvider);
         await ref.read(activeGameSessionProvider.notifier).startNewSession(
@@ -123,13 +129,12 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen>
 
       // Cargar el mapa centrado en esa posición para AMBOS casos (Nueva o Reanudada).
       _setStatus('Descargando calles del mundo...');
-        await ref.read(mapStateProvider).loadInitialMapData(
-              initialLat: targetCoords.latitude,
-              initialLon: targetCoords.longitude,
-              radiusMeters: 5000,
-        
-            );
-
+      await ref.read(mapStateProvider).loadInitialMapData(
+            initialLat: targetCoords.latitude,
+            initialLon: targetCoords.longitude,
+            radiusMeters: MapConstants.initialLoadRadiusMeters,
+          );
+          
       // Colocar al jugador.
       ref.read(playerMovementProvider.notifier).teleport(targetCoords);
       AppLogger.log.i(
