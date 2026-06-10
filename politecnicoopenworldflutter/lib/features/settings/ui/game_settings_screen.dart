@@ -39,8 +39,7 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     _showDatabase = ref.read(showDatabaseProvider);
     _freeMovement = ref.read(freeMovementProvider);
     _useRealLocation = ref.read(useRealLocationProvider);
-}
-
+  }
 
   Future<void> _save() async {
     final settingsRepository = ref.read(settingsRepositoryProvider);
@@ -69,11 +68,12 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Configuración guardada'),
-        behavior: SnackBarBehavior.floating,
+        behavior: SnackBarBehavior.fixed,
       ),
     );
     setState(() {});
   }
+
   void _reset() => setState(() => _loadFromProviders());
 
   @override
@@ -98,7 +98,6 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
         _freeMovement != savedFreeMovement ||
         _useRealLocation != savedUseRealLocation;
 
-
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -108,86 +107,100 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
             colors: theme.backgroundGradient,
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(theme),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          children: [
+            // El contenido superior se expande y se protege de los recortes de pantalla
+            Expanded(
+              child: SafeArea(
+                bottom: false, // Permitimos que fluya hacia abajo libremente
+                child: Column(
                   children: [
-                    _buildSection(
-                      theme: theme,
-                      icon: Icons.map_outlined,
-                      title: 'Mapa',
-                      children: [_buildMapProviderSelector(theme)],
-                    ),
-                    _buildSection(
-                      theme: theme,
-                      icon: Icons.gamepad_outlined,
-                      title: 'Controles',
-                      children: [
-                        _buildControlTypeSelector(theme),
-                        _buildDivider(theme),
-                        _buildToggle(
-                          theme: theme,
-                          label: 'Invertir controles',
-                          value: _invertControls,
-                          onChanged: (v) => setState(() => _invertControls = v),
-                        ),
-                        _buildDivider(theme),
-                        _buildSizeSlider(theme),
-                      ],
-                    ),
-                    _buildSection(
-                      theme: theme,
-                      icon: Icons.tune_outlined,
-                      title: 'Interfaz',
-                      children: [
-                        _buildToggle(
-                          theme: theme,
-                          label: 'Mostrar FPS',
-                          value: _showFps,
-                          onChanged: (v) => setState(() => _showFps = v),
-                        ),
-                        _buildDivider(theme),
-                        _buildToggle(
-                          theme: theme,
-                          label: 'Mostrar Base de Datos',
-                          subtitle: 'Muestra estadísticas de la DB local',
-                          value: _showDatabase,
-                          onChanged: (v) => setState(() => _showDatabase = v),
-                        ),
-                      ],
-                    ),
-                    _buildSection(
-                      theme: theme,
-                      icon: Icons.sports_esports_outlined,
-                      title: 'Jugabilidad',
-                      children: [
-                        _buildToggle(
-                          theme: theme,
-                          label: 'Usar ubicación real (GPS)',
-                          subtitle: 'Si está apagado, aparecerás en ESCOM.',
-                          value: _useRealLocation,
-                          onChanged: (v) => setState(() => _useRealLocation = v),
-                        ),
-                        _buildToggle(
-                          theme: theme,
-                          label: 'Movimiento libre',
-                          subtitle:
-                              'El jugador puede moverse fuera de las calles',
-                          value: _freeMovement,
-                          onChanged: (v) => setState(() => _freeMovement = v),
-                        ),
-                      ],
+                    _buildTopBar(theme),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        children: [
+                          _buildSection(
+                            theme: theme,
+                            icon: Icons.map_outlined,
+                            title: 'Mapa',
+                            children: [_buildMapProviderSelector(theme)],
+                          ),
+                          _buildSection(
+                            theme: theme,
+                            icon: Icons.gamepad_outlined,
+                            title: 'Controles',
+                            children: [
+                              _buildControlTypeSelector(theme),
+                              _buildDivider(theme),
+                              _buildToggle(
+                                theme: theme,
+                                label: 'Invertir controles',
+                                value: _invertControls,
+                                onChanged: (v) =>
+                                    setState(() => _invertControls = v),
+                              ),
+                              _buildDivider(theme),
+                              _buildSizeSlider(theme),
+                            ],
+                          ),
+                          _buildSection(
+                            theme: theme,
+                            icon: Icons.tune_outlined,
+                            title: 'Interfaz',
+                            children: [
+                              _buildToggle(
+                                theme: theme,
+                                label: 'Mostrar FPS',
+                                value: _showFps,
+                                onChanged: (v) => setState(() => _showFps = v),
+                              ),
+                              _buildDivider(theme),
+                              _buildToggle(
+                                theme: theme,
+                                label: 'Mostrar Base de Datos',
+                                subtitle: 'Muestra estadísticas de la DB local',
+                                value: _showDatabase,
+                                onChanged: (v) =>
+                                    setState(() => _showDatabase = v),
+                              ),
+                            ],
+                          ),
+                          _buildSection(
+                            theme: theme,
+                            icon: Icons.sports_esports_outlined,
+                            title: 'Jugabilidad',
+                            children: [
+                              _buildToggle(
+                                theme: theme,
+                                label: 'Usar ubicación real (GPS)',
+                                subtitle:
+                                    'Si está apagado, aparecerás en ESCOM.',
+                                value: _useRealLocation,
+                                onChanged: (v) =>
+                                    setState(() => _useRealLocation = v),
+                              ),
+                              _buildToggle(
+                                theme: theme,
+                                label: 'Movimiento libre',
+                                subtitle:
+                                    'El jugador puede moverse fuera de las calles',
+                                value: _freeMovement,
+                                onChanged: (v) =>
+                                    setState(() => _freeMovement = v),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-              _buildActionBar(theme, hasChanges),
-            ],
-          ),
+            ),
+            // La barra de acciones queda fuera del SafeArea general para tocar los bordes de la pantalla
+            _buildActionBar(theme, hasChanges),
+          ],
         ),
       ),
     );
@@ -272,9 +285,10 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
 
   Widget _buildActionBar(AppTheme theme, bool hasChanges) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      // 1. Movemos el color y el borde al contenedor padre para que ocupe todo el fondo
       decoration: BoxDecoration(
-        color: theme.surfacePrimary.withValues(alpha: 0.9),
+        color: theme
+            .surfacePrimary, // Usamos color sólido sin opacidad para que no se mezcle
         border: Border(
           top: BorderSide(
             color: theme.borderAccent,
@@ -282,56 +296,65 @@ class _GameSettingsScreenState extends ConsumerState<GameSettingsScreen> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: hasChanges ? _reset : null,
-              icon: const Icon(Icons.restore, size: 20),
-              label: const Text('Restablecer'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.surfaceOverlay,
-                foregroundColor: theme.textPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: hasChanges ? theme.textTertiary : Colors.transparent,
+      // 2. Protegemos los botones con su propio SafeArea interno
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: hasChanges ? _reset : null,
+                  icon: const Icon(Icons.restore, size: 20),
+                  label: const Text('Restablecer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.surfaceOverlay,
+                    foregroundColor: theme.textPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: hasChanges
+                            ? theme.textTertiary
+                            : Colors.transparent,
+                      ),
+                    ),
+                    disabledBackgroundColor: theme.surfaceOverlay,
+                    disabledForegroundColor: theme.textTertiary,
                   ),
                 ),
-                disabledBackgroundColor: theme.surfaceOverlay,
-                disabledForegroundColor: theme.textTertiary,
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton.icon(
-              onPressed: hasChanges ? _save : null,
-              icon: const Icon(Icons.save_outlined, size: 20),
-              label: const Text(
-                'Guardar cambios',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.buttonPrimary,
-                foregroundColor: theme.buttonPrimaryText,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: hasChanges ? _save : null,
+                  icon: const Icon(Icons.save_outlined, size: 20),
+                  label: const Text(
+                    'Guardar cambios',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.buttonPrimary,
+                    foregroundColor: theme.buttonPrimaryText,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    disabledBackgroundColor:
+                        theme.buttonPrimary.withValues(alpha: 0.3),
+                    disabledForegroundColor: theme.textTertiary,
+                  ),
                 ),
-                disabledBackgroundColor:
-                    theme.buttonPrimary.withValues(alpha: 0.3),
-                disabledForegroundColor: theme.textTertiary,
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
-  
+
   Widget _buildToggle({
     required AppTheme theme,
     required String label,
