@@ -305,7 +305,11 @@ class GameMenuScreen extends ConsumerWidget {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor:
+                  Colors.white, // <-- Esta línea cambia el texto a blanco
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Salir'),
           ),
