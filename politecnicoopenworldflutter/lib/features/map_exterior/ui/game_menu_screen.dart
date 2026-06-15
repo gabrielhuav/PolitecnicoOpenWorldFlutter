@@ -72,7 +72,8 @@ class GameMenuScreen extends ConsumerWidget {
   /// Vertical layout view layout (Portrait)
   Widget _buildPortraitLayout(
       BuildContext context, WidgetRef ref, AppTheme theme) {
-    final isMultiplayer = ref.watch(multiplayerProvider).status != MultiplayerStatus.disconnected;
+    final isMultiplayer =
+        ref.watch(multiplayerProvider).status != MultiplayerStatus.disconnected;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
@@ -103,12 +104,12 @@ class GameMenuScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 15),
             if (!isMultiplayer)
-            MenuButton(
-              title: 'Guardar partida',
-              icon: Icons.save_outlined,
-              isSecondary: true,
-              onPressed: () => _handleSaveGame(context, ref),
-            ),
+              MenuButton(
+                title: 'Guardar partida',
+                icon: Icons.save_outlined,
+                isSecondary: true,
+                onPressed: () => _handleSaveGame(context, ref),
+              ),
             const SizedBox(height: 15),
             MenuButton(
               title: 'Configuración',
@@ -138,7 +139,7 @@ class GameMenuScreen extends ConsumerWidget {
   /// Splits your screen cleanly into two halves: Header info on the left, buttons grid on the right.
   Widget _buildLandscapeLayout(
       BuildContext context, WidgetRef ref, AppTheme theme) {
-        final isMultiplayer = ref.watch(multiplayerProvider).isConnected;
+    final isMultiplayer = ref.watch(multiplayerProvider).isConnected;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
       child: Row(
@@ -189,12 +190,12 @@ class GameMenuScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     if (!isMultiplayer)
-                    MenuButton(
-                      title: 'Guardar partida',
-                      icon: Icons.save_outlined,
-                      isSecondary: true,
-                      onPressed: () => _handleSaveGame(context, ref),
-                    ),
+                      MenuButton(
+                        title: 'Guardar partida',
+                        icon: Icons.save_outlined,
+                        isSecondary: true,
+                        onPressed: () => _handleSaveGame(context, ref),
+                      ),
                     const SizedBox(height: 12),
                     MenuButton(
                       title: 'Configuración',
@@ -225,6 +226,7 @@ class GameMenuScreen extends ConsumerWidget {
   }
 
   /// Gestiona el guardado asíncrono leyendo la posición actual y enviándola a Drift
+  /// Gestiona el guardado asíncrono leyendo la posición actual y enviándola a Drift
   Future<void> _handleSaveGame(BuildContext context, WidgetRef ref) async {
     /// Verificación de seguridad recomendada por Copilot
     final currentSession = ref.read(activeGameSessionProvider).value;
@@ -233,19 +235,21 @@ class GameMenuScreen extends ConsumerWidget {
         const SnackBar(
           content: Text('Error: No hay partida activa para guardar.'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.fixed,
         ),
       );
       return; // Salimos temprano para no mostrar éxito falso
     }
 
     // 1. Obtenemos la posición actual exacta del jugador en el mapa
-    final PlayerState = ref.read(playerMovementProvider);
+    // (Corregido a minúscula para evitar conflictos con la clase PlayerState)
+    final playerState = ref.read(playerMovementProvider);
 
     try {
       // 2. Invocamos al notifier para actualizar la BD local de SQLite en segundo plano
       await ref.read(activeGameSessionProvider.notifier).saveCurrentPosition(
-            PlayerState.position.latitude,
-            PlayerState.position.longitude,
+            playerState.position.latitude,
+            playerState.position.longitude,
           );
 
       // Esto borra la caché de la RAM y fuerza a que la próxima vez que entres
@@ -254,6 +258,9 @@ class GameMenuScreen extends ConsumerWidget {
 
       // Verificación de seguridad si el widget fue destruido del árbol de UI durante la espera
       if (!context.mounted) return;
+
+      // Opcional: Cerramos el menú automáticamente al guardar
+      Navigator.pop(context);
 
       // 3. Mostramos feedback positivo al usuario mediante un SnackBar
       ScaffoldMessenger.of(context).showSnackBar(
@@ -265,7 +272,7 @@ class GameMenuScreen extends ConsumerWidget {
               Text('¡Partida guardada exitosamente!'),
             ],
           ),
-          behavior: SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.fixed, // <-- CAMBIADO DE floating A fixed
           backgroundColor: Colors.green,
         ),
       );
@@ -276,7 +283,7 @@ class GameMenuScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al guardar la partida: $e'),
-          behavior: SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.fixed, // <-- CAMBIADO DE floating A fixed
           backgroundColor: Colors.redAccent,
         ),
       );
