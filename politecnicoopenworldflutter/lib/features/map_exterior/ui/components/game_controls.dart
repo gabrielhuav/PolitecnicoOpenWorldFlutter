@@ -31,21 +31,21 @@ class GameControls extends ConsumerWidget {
   }
 }
 
-/// Controles peatonales originales con la logica de X modificada:
+/// Controles peatonales con la lógica de X modificada:
 /// X intenta subirse al coche mas cercano; si no hay coche, golpea.
 class _WalkingControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final inverted = ref.watch(invertControlsProvider);
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     const movement = MovementControl();
     final actions = ActionButtons(
       // X (izquierda): subir al coche
       onActionLeft: () {
-        final entered =
-            ref.read(vehicleProvider.notifier).tryEnterNearestVehicle();
+        ref.read(vehicleProvider.notifier).tryEnterNearestVehicle();
       },
-
       // A (abajo): alternar correr
       onActionBottom: () {
         final isRunning = ref.read(playerMovementProvider).isRunning;
@@ -53,11 +53,46 @@ class _WalkingControls extends ConsumerWidget {
       },
     );
 
-    final Widget left = inverted ? actions : movement;
-    final Widget right = inverted ? movement : actions;
+    // ========================================================
+    // AQUÍ CONFIGURAS LA OPACIDAD (0.0 invisible - 1.0 sólido)
+    // ========================================================
+    const double opacidadControles = 0.65; // 65% de opacidad
 
+    // Envolvemos la asignación de botones con el widget Opacity
+    final Widget left = Opacity(
+      opacity: opacidadControles,
+      child: inverted ? actions : movement,
+    );
+
+    final Widget right = Opacity(
+      opacity: opacidadControles,
+      child: inverted ? movement : actions,
+    );
+
+    // Dependiendo de la orientación del teléfono, llamamos a un layout distinto
+    if (isLandscape) {
+      return _buildLandscapeLayout(left, right);
+    } else {
+      return _buildPortraitLayout(left, right);
+    }
+  }
+
+  /// Layout para cuando el teléfono está de pie (Vertical)
+  Widget _buildPortraitLayout(Widget left, Widget right) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [left, right],
+      ),
+    );
+  }
+
+  /// Layout para cuando el teléfono está acostado (Horizontal)
+  Widget _buildLandscapeLayout(Widget left, Widget right) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(50, 0, 70, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
