@@ -1,30 +1,35 @@
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import '../../settings/state/game_settings_providers.dart';
 import 'location_providers.dart';
+import '../../settings/state/game_settings_providers.dart';
+import '../../../multiplayer/multiplayer_notifier.dart';
 
 enum PlayerDirection { up, down, left, right }
 
 class PlayerState {
   final LatLng position;
   final bool isMoving;
+  final bool isRunning; 
   final PlayerDirection facing;
 
   const PlayerState({
     required this.position,
     this.isMoving = false,
-    this.facing = PlayerDirection.down, // Por defecto mira hacia abajo
+    this.isRunning = false, 
+    this.facing = PlayerDirection.down,
   });
 
   PlayerState copyWith({
     LatLng? position,
     bool? isMoving,
+    bool? isRunning, 
     PlayerDirection? facing,
   }) {
     return PlayerState(
       position: position ?? this.position,
       isMoving: isMoving ?? this.isMoving,
+      isRunning: isRunning ?? this.isRunning,
       facing: facing ?? this.facing,
     );
   }
@@ -33,12 +38,19 @@ class PlayerState {
 class PlayerMovementNotifier extends StateNotifier<PlayerState> {
   final Ref ref;
   static const LatLng escomLocation = LatLng(19.5045, -99.1465);
-  static const double walkSpeedMetersPerSecond = 5.0;
+  static const double walkSpeedMetersPerSecond = 7.5;
   static const double _tickSeconds = 0.033;
   static const double _metersPerLatDegree = 111000.0;
 
   PlayerMovementNotifier(this.ref)
       : super(const PlayerState(position: escomLocation));
+
+  // --- MÉTODO PARA ACTIVAR/DESACTIVAR CORRER ---
+  void setRunning(bool isRunning) {
+    if (state.isRunning != isRunning) {
+      state = state.copyWith(isRunning: isRunning);
+    }
+  }
 
   void teleport(LatLng newPos) {
     state = state.copyWith(position: newPos);
@@ -66,13 +78,15 @@ class PlayerMovementNotifier extends StateNotifier<PlayerState> {
   }
 
   void moveBy(double dx, double dy) {
-    final distanceMeters = walkSpeedMetersPerSecond * _tickSeconds;
+    // 3. Aplicamos el multiplicador si isRunning es true (el doble de rápido)
+    final double speedMultiplier = state.isRunning ? 2.0 : 1.0;
+    final distanceMeters = walkSpeedMetersPerSecond * speedMultiplier * _tickSeconds;
+    
     final dLatDeg = (distanceMeters / _metersPerLatDegree) * (-dy);
     final lonMetersPerDeg =
         _metersPerLatDegree * math.cos(state.position.latitude * math.pi / 180);
     final dLonDeg = (distanceMeters / lonMetersPerDeg) * dx;
 
-    // Determinar hacia dónde mira basado en el delta dominante
     PlayerDirection newFacing = state.facing;
     if (dx.abs() > dy.abs()) {
       newFacing = dx > 0 ? PlayerDirection.right : PlayerDirection.left;
@@ -88,9 +102,20 @@ class PlayerMovementNotifier extends StateNotifier<PlayerState> {
       isMoving: true,
       facing: newFacing,
     );
+    // Usamos el estado isRunning para enviar la acción
+    final String currentAction = state.isRunning ? 'run' : 'walk';
+    
+    // Determinar hacia dónde mira para tu propiedad facingRight
+    final bool isFacingRight = state.facing != PlayerDirection.left;
+
+    ref.read(multiplayerProvider.notifier).broadcastMovement(
+      state.position,
+      action: currentAction,
+      facingRight: isFacingRight,
+      isDriving: false,
+    );
   }
 
-  // Nuevo método para detener la animación
   void stopMovement() {
     if (state.isMoving) {
       state = state.copyWith(isMoving: false);

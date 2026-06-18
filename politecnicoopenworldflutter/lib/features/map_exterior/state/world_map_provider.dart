@@ -4,6 +4,7 @@ import '../../../core/utils/app_logger.dart';
 import '../../../data/repository/map_repository_impl.dart';
 import '../../../domain/models/map_node.dart';
 import '../../../domain/models/map_way.dart';
+import '../../../core/utils/map_constants.dart';
 
 class WorldMapProvider extends ChangeNotifier {
   final MapRepository _mapRepository;
@@ -28,9 +29,9 @@ class WorldMapProvider extends ChangeNotifier {
 
   /// Bootstrap inicial: lo invoca [LoadingScreen] una sola vez.
   Future<void> loadInitialMapData({
-    double initialLat = 19.5045,
-    double initialLon = -99.1465,
-    double radiusMeters = 5000,
+    required double initialLat,
+    required double initialLon,
+    double radiusMeters = MapConstants.singleplayerRadiusMeters,
   }) async {
     AppLogger.log.i(
       'loadInitialMapData: centro=($initialLat, $initialLon) '
@@ -51,8 +52,17 @@ class WorldMapProvider extends ChangeNotifier {
           notifyListeners();
         },
       );
-      _ways = ways;
-      _nodes = ways.expand((w) => w.nodes).toList();
+      // Fusionar: mantener ways existentes fuera del nuevo radio
+      // y agregar/actualizar las del nuevo radio. Dedup por way ID.
+      final merged = <int, MapWay>{};
+      for (final w in _ways) {
+        merged[w.id] = w;
+      }
+      for (final w in ways) {
+        merged[w.id] = w; // actualiza si ya existia, agrega si es nueva
+      }
+      _ways = merged.values.toList();
+      _nodes = _ways.expand((w) => w.nodes).toList();
     } catch (e, stack) {
       _errorMessage = 'Fallo crítico al inicializar el mundo: $e';
       AppLogger.log.e('loadInitialMapData falló', error: e, stackTrace: stack);
@@ -71,24 +81,24 @@ class WorldMapProvider extends ChangeNotifier {
   /// no han vencido, es casi instantáneo. Si no, sólo se descarga
   /// la franja anular nueva.
   Future<void> expandCoverage({
-    required double centerLat,
-    required double centerLon,
-    double radiusMeters = 5000,
+    required double initialLat,
+    required double initialLon,
+    double radiusMeters = MapConstants.singleplayerRadiusMeters,
   }) async {
     if (_isLoading) {
       AppLogger.log.d('expandCoverage saltado: ya hay una carga en curso');
       return;
     }
     AppLogger.log.i(
-      'expandCoverage: centro=($centerLat, $centerLon) '
+      'expandCoverage: centro=($initialLat, $initialLon) '
       'radio=${radiusMeters}m',
     );
     _isLoading = true;
     notifyListeners();
     try {
       final ways = await _mapRepository.getRoadsForLocation(
-        centerLat,
-        centerLon,
+        initialLat,
+        initialLon,
         radiusMeters: radiusMeters,
         onProgress: (p) {
           _progress = p;

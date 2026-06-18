@@ -15,16 +15,16 @@ class NpcSpawnPlan {
 
 class NpcSpawner {
   /// Radio mínimo de spawn cuando no se conoce el viewport.
-  static const double _baseSpawnRadiusMeters = 1000;
+  static const double _baseSpawnRadiusMeters = 250;
 
   /// El despawn se hace a 1.25x el spawn efectivo.
   static const double _despawnMultiplier = 1.25;
 
   /// Tope absoluto.
-  static const int _hardCap = 400;
+  static const int _hardCap = 50;
 
-  static const double _personSpeed = 1.4;
-  static const double _carSpeed = 9.0;
+  static const double _personSpeed = 4.5;
+  static const double _carSpeed = 15.0;
 
   /// Probabilidad de intentar spawnear un coche. Se elevó al 30% para
   /// que haya una proporción más visible de vehículos en el mapa.
@@ -116,8 +116,7 @@ class NpcSpawner {
     final effectiveSpawnRadius = viewportRadiusMeters > 0
         ? max(viewportRadiusMeters, _baseSpawnRadiusMeters)
         : _baseSpawnRadiusMeters;
-    final effectiveDespawnRadius =
-        effectiveSpawnRadius * _despawnMultiplier;
+    final effectiveDespawnRadius = effectiveSpawnRadius * _despawnMultiplier;
 
     // Despawn de NPCs fuera del anillo.
     final toDespawn = <String>[];

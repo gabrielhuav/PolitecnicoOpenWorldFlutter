@@ -42,6 +42,18 @@ class NpcAiCoordinator {
     _npcs = const [];
   }
 
+  /// Retira un NPC por su [id]. Usado cuando el jugador se sube a un
+  /// coche: el NPC desaparece del mundo.
+  void removeById(String id) {
+    _npcs = _npcs.where((n) => n.id != id).toList();
+  }
+
+  /// Inyecta un NPC al mundo sin pasar por el spawner. Usado para
+  /// colocar un coche estacionado cuando el jugador se baja.
+  void inject(Npc npc) {
+    _npcs = [..._npcs, npc];
+  }
+
   /// Avanza la simulación. Devuelve la lista nueva de NPCs.
   List<Npc> tick(
     double dtSeconds,

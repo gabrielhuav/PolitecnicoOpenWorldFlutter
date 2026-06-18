@@ -8,17 +8,26 @@ import 'package:latlong2/latlong.dart';
 import '../../../../domain/models/npc.dart';
 import '../../../../domain/models/npc_enums.dart';
 import '../../state/npc_notifier.dart';
+import '../../state/vehicle_notifier.dart';
 
-/// Capa de marcadores para todos los NPCs vivos. Se suscribe a
-/// [npcNotifierProvider]; se reconstruye en cada frame de la simulación.
+/// Capa de marcadores para todos los NPCs vivos. Filtra los coches
+/// que el jugador consumio (se subio) via [vehicleProvider].
 class NpcMarkerLayer extends ConsumerWidget {
   const NpcMarkerLayer({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final npcs = ref.watch(npcNotifierProvider);
+    final consumed = ref.watch(
+      vehicleProvider.select((s) => s.consumedVehicleIds),
+    );
+
+    final visible = consumed.isEmpty
+        ? npcs
+        : npcs.where((n) => !consumed.contains(n.id)).toList();
+
     return MarkerLayer(
-      markers: npcs.map(_buildMarker).toList(growable: false),
+      markers: visible.map(_buildMarker).toList(growable: false),
     );
   }
 

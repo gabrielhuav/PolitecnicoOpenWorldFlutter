@@ -91,32 +91,39 @@ class _CharacterSelectionScreenState
         title: const Text('Ranuras de guardado llenas (4/4)'),
         content: SizedBox(
           width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Debes seleccionar una partida para reemplazar:'),
-              const SizedBox(height: 10),
-              // Generamos una lista clickeable con las partidas existentes
-              ...sessions.map((session) => ListTile(
-                leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                title: Text(session.characterName),
-                subtitle: Text('Último guardado: ${session.updatedAt.toLocal().toString().split('.')[0]}'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  setState(() => _gameStarting = true);
-                  
-                  // Borramos la partida seleccionada usando el repositorio
-                  await ref.read(gameSessionRepositoryProvider).delete(session.id);
-                  // Refrescamos la lista de la caché
-                  ref.invalidate(allGameSessionsProvider);
-                  
-                  if (!mounted) return;
-                  // Iniciamos la nueva partida
-                  _proceedToLoadingScreen(context);
-                },
-              )),
-            ],
+          // 1. Añadimos SingleChildScrollView aquí
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Debes seleccionar una partida para reemplazar:'),
+                const SizedBox(height: 10),
+                // Generamos una lista clickeable con las partidas existentes
+                ...sessions.map((session) => ListTile(
+                      leading: const Icon(Icons.warning_amber_rounded,
+                          color: Colors.orange),
+                      title: Text(session.characterName),
+                      subtitle: Text(
+                          'Último guardado: ${session.updatedAt.toLocal().toString().split('.')[0]}'),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        setState(() => _gameStarting = true);
+
+                        // Borramos la partida seleccionada usando el repositorio
+                        await ref
+                            .read(gameSessionRepositoryProvider)
+                            .delete(session.id);
+                        // Refrescamos la lista de la caché
+                        ref.invalidate(allGameSessionsProvider);
+
+                        if (!mounted) return;
+                        // Iniciamos la nueva partida
+                        _proceedToLoadingScreen(context);
+                      },
+                    )),
+              ],
+            ),
           ),
         ),
         actions: [

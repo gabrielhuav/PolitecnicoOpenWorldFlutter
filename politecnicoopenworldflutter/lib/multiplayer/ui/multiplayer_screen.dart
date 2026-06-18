@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/providers.dart';
+import '../../core/utils/network_constants.dart';
 import '../../features/main_menu/state/character_provider.dart';
 import '../../features/map_exterior/ui/loading_screen.dart';
 import '../../features/map_exterior/state/location_providers.dart';
@@ -85,7 +86,8 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => const LoadingScreen(isResuming: false),
+        builder: (_) => const LoadingScreen(isMultiplayer: true),
+
       ),
     );
   }
@@ -247,12 +249,12 @@ class _MultiplayerScreenState extends ConsumerState<MultiplayerScreen> {
                                   tooltip: 'Restaurar URL por defecto',
                                   onPressed: () {
                                     _urlController.text =
-                                        'wss://politecnicoopenworld.onrender.com/flutter';
+                                        NetworkConstants.serverWebSocketUrl;
                                     ref
                                         .read(multiplayerServerUrlProvider
                                             .notifier)
                                         .state =
-                                        'wss://politecnicoopenworld.onrender.com/flutter';
+                                        NetworkConstants.serverWebSocketUrl;
                                   },
                                 ),
                               ),
